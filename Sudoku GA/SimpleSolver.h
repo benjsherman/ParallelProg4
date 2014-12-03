@@ -1,3 +1,4 @@
+#include <mpi.h>
 #include<iostream>
 #include"puzzle.h"
 
