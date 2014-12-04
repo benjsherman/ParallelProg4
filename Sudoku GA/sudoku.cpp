@@ -167,9 +167,11 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	fitnesses.resize(matingPopulation.size());
 	children.resize(population_size);
 
+#pragma omp parallel for num_threads(Sudokoid::GLOBAL_P)
 	for(unsigned int i = 0; i < matingPopulation.size(); i++)
 	{
 		fitnesses[i] = 1.0 / matingPopulation[i].Fitness;
+		#pragma omp critical
 		fitnessTotal += fitnesses[i];
 	}
 
@@ -187,6 +189,7 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 		double roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
 		valid  = true;
 
+		// can't use OMP because of undetermined loop exit
 		//subtract all values in the list until roulette passes or reaches 0
 		for(unsigned int i = 0; i < matingPopulation.size(); i++)
 		{
@@ -201,6 +204,8 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	
 		//now obtain the same for the second mate
 		roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
+		
+		// can't use OMP because of undetermined loop exit
 		for(unsigned int i = 0; i < matingPopulation.size(); i++)
 		{
 			roulette -= fitnesses[i];
@@ -240,6 +245,7 @@ returns - the top selectionRate fraction of Sudokoids
 vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
+	// OMP not used because of dependencies
 	for (unsigned int k = 0; k < population.size(); k++)
 	{
 		if(population[k].Fitness == INT_MAX)
@@ -273,6 +279,7 @@ vector < Sudokoid > GenerateInitialPopulation( Sudokoid progenitor, int populati
 	vector < Sudokoid > population;
 	population.resize(population_size);
 
+	// not done in OMP because of memory management that doesn't work in OMP parallel
 	for(int i = 0; i < population_size; i++ )
 	{
 		population[i] = Sudokoid(progenitor.Cells); //copy the progenitor
@@ -305,7 +312,7 @@ Sudokoid Best( vector <Sudokoid> population)
 		cout<<population[1].Fitness;
 		return Sudokoid();
 	}
-
+	// No OMP because of dependencies
 	for(unsigned int i = 0; i < population.size(); i++)
 	{
 		//make sure that the fitness has been calculated
@@ -427,6 +434,7 @@ int main(int argc, char *argv[])
 	if(FirstPuzzleSudokoid.Fitness == 0)
 	{
 		BestSolution = Sudokoid(FirstPuzzleSudokoid.puzzle);
+		cout << "GA was not neccessary, no parallel timings" << endl;
 	}
 	else
 	{
@@ -442,9 +450,11 @@ int main(int argc, char *argv[])
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
 
+		double startTime, totalTime = 0;
 		//if not, begin the generational looping
 		while(bestFit > 0 && generation < generations)
 		{
+			startTime = omp_get_wtime();
 			//create a new generation
 			generation++;
 			cout << "Generation " << generation << ": ";
@@ -487,8 +497,12 @@ int main(int argc, char *argv[])
 				lastBest = INT_MAX; //the last best, used to find streaks.
 				tieStreak = 0; //the number of generations which have been a tie
 			}
+			totalTime  += (omp_get_wtime() - startTime);
 
 		}
+		
+		
+		cout << "Average generation completed with " << Sudokoid::GLOBAL_P << " thread(s) in " << totalTime/(double)generation << " seconds" << endl;
 
 	//select the best of all champion solutions as the best solution
 	champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting

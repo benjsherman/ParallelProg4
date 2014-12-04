@@ -68,4 +68,6 @@ class Sudokoid
 		
 		//memory management
 		static void deletePuzzles();
+		
+		static const int GLOBAL_P = 4;
 };
