@@ -1,4 +1,4 @@
-CXXFLAGS= -std=c++11 -Wall -O3
+CXXFLAGS= -std=c++11 -g -Wall -O3 -fopenmp
 
 
 OBJS = sudoku.o SimpleSolver.o puzzle.o Sudokoid.o
@@ -6,27 +6,27 @@ OBJS = sudoku.o SimpleSolver.o puzzle.o Sudokoid.o
 
 sudoku: sudoku.o puzzle.o SimpleSolver.o Sudokoid.o
 
-	g++ ${OBJS} ${CXXFLAGS} -lm -o sudoku
+	g++ ${OBJS} ${CXXFLAGS} -o sudoku -lm
 
 
 sudoku.o: sudoku.cpp SimpleSolver.h 
 
-	g++ ${CXXFLAGS} -c sudoku.cpp
+	g++ ${CXXFLAGS} -c sudoku.cpp -lm
 
 
 SimpleSolver.o: SimpleSolver.cpp SimpleSolver.h puzzle.h
 
-	g++ ${CXXFLAGS} -c SimpleSolver.cpp
+	g++ ${CXXFLAGS} -c SimpleSolver.cpp -lm
 
 
 puzzle.o: puzzle.cpp puzzle.h
 
-	g++ ${CXXFLAGS} -c puzzle.cpp
+	g++ ${CXXFLAGS} -c puzzle.cpp -lm
 
 
 Sudokoid.o: Sudokoid.cpp Sudokoid.h
 
-	g++ ${CXXFLAGS} -c Sudokoid.cpp
+	g++ ${CXXFLAGS} -c Sudokoid.cpp -lm
 
 
 clean:

@@ -420,7 +420,7 @@ prevents the skipping of indexes during the deletion.
 ******************************************************************************/
 void Sudokoid::deletePuzzles()
 {
-	for( int j = 0; j < DeleteList.size(); j++)
+	for( int j = 0; j < (int)DeleteList.size(); j++)
 	{
 		Puzzle* deleted = DeleteList[j];
 		delete DeleteList[j];

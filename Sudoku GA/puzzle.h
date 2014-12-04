@@ -1,3 +1,4 @@
+#include <omp.h>
 #include <iostream>
 #include "Sudokoid.h"
 
