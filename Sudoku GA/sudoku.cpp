@@ -447,12 +447,12 @@ int main(int argc, char *argv[])
 
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
-		bool cont = true;
+		int cont = 1;
 		MPI_Group grp, g1;
-		MPI_Comm sub_comm; 
+		MPI_Comm sub_comm;
+		MPI_Request request = MPI_REQUEST_NULL; 
 		int* grp_ranks;
-		int dummy[1];
-					
+							
 		MPI_Init(NULL, NULL);
 		
 		MPI_Comm_size (comm, &processes);
@@ -474,17 +474,26 @@ int main(int argc, char *argv[])
 		{	
 			// Champs received from each thread are stored here
 			vector < vector <Sudokoid> > threadBestsChamps;			
+			int recv = 0;
+			MPI_Status status;
+			while (!recv)
+			{
+				// could listen for conditional receives in here then kill prcesses 
+				MPI_Iprobe (MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &recv, &status);
+			}
+			// gets to here when a 0 is sent, may not be receving or sending
+			int sender = status.MPI_SOURCE;
+			MPI_Recv (&cont, 1, MPI_INT, sender, MPI_ANY_TAG, comm, &status);
+			cout << "HERasdfjasdlfkjaslkdjflkasjdfl;kjasdfl;jkasdl;fjals;djfl;askjdfl;kjsadflkjasdlfkjasld;kfjsl;dfjksa;E " << endl;
+			for (i = 1; i < processes; i++)  // may not be sending or others may not be receiveing
+				MPI_Send (&cont, 1, MPI_INT, i, 0, comm); 
 
-		//	while (cont)
-		//	{
-		//		if (bestFit == 0)
-		//			cont = false;
-		//	}	
 		}	
 		//if not, begin the generational looping
 		else if (my_rank != 0)
 		{
-			while(bestFit > 0 && generation < generations)
+			cont = 1;
+			while(bestFit > 0 && generation < generations && cont == 1)
 			{
 				//create a new generation
 				generation++;
@@ -519,7 +528,7 @@ int main(int argc, char *argv[])
 				if(tieStreak >= restart_threshold)
 				{
 					//restart
-					//cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
+					cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
 					//generate the inital population
 
 					Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
@@ -529,23 +538,26 @@ int main(int argc, char *argv[])
 					lastBest = INT_MAX; //the last best, used to find streaks.
 					tieStreak = 0; //the number of generations which have been a tie
 				}
-				
+				MPI_Irecv (&cont, 1, MPI_INT, 0, 0, comm, &request);			
 			}
 
 			int winnerRank;
 			if (bestFit == 0)
 			{
+				int complete = false;
+				MPI_Status status;
 				winnerRank = my_rank;
-				BestSolution = Best(champions);
-				//MPI_Finalize();
-			}
+				cont = 0;
+
+				//BestSolution = Best(champions);	
+				MPI_Send(&cont, 1, MPI_INT, 0, 10, comm);
+			}	
 
 			// wait for other threads in group 
-			MPI_Barrier(sub_comm);
+		//	MPI_Finalize();	
 			// send back champions so best solution can be found 
 			
 		}
-
 		MPI_Finalize();
 	
 			
