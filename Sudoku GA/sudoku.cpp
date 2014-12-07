@@ -134,7 +134,7 @@ Issues and Bugs - running multiple sudoku proccesses on the same file simeltaneo
 #include <algorithm>
 #include <math.h>
 #include "SimpleSolver.h"
-
+#include <mpi.h>
 
 //Deletion lists for memory managment
 vector <Puzzle*> Sudokoid::DeleteList = vector <Puzzle*> ();
@@ -355,6 +355,11 @@ int main(int argc, char *argv[])
 	double selection_rate = 0.5;
 	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
 
+	// MPI variables 
+	int my_rank, processes;
+	MPI_Comm comm = MPI_COMM_WORLD;
+	int i = 0;	
+	
 	//look for first few arguments
 	switch(argc)
 	{
@@ -430,6 +435,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		
 		champions.resize(generations);
 
 		//generate the inital population
@@ -441,65 +447,115 @@ int main(int argc, char *argv[])
 
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
+		bool cont = true;
+		MPI_Group grp, g1 ; 
+		int* grp_ranks;
+		int dummy[1];
+					
+		MPI_Init(NULL, NULL);
+		
+		MPI_Comm_size (comm, &processes);
+		MPI_Comm_rank (comm, &my_rank);	
+		MPI_Comm_group(comm, &g1);		
 
+		grp_ranks = new (nothrow) int [processes - 1];
+
+		if (my_rank == 0)
+			for (i = 1; i < processes; i++)
+				grp_ranks[i-1] = i;
+	
+		MPI_Bcast (grp_ranks, processes-1, MPI_INT, 0, comm);
+		MPI_Group_incl (g1, processes - 1, grp_ranks, &grp);
+
+		if (my_rank == 0)
+		{	
+			// Champs received from each thread are stored here
+			vector < vector <Sudokoid> > threadBestsChamps;			
+		
+			while (cont)
+			{
+				if (bestFit == 0)
+					cont = false;
+			}	
+		}	
 		//if not, begin the generational looping
-		while(bestFit > 0 && generation < generations)
+		else if (my_rank != 0)
 		{
-			//create a new generation
-			generation++;
-			cout << "Generation " << generation << ": ";
-
-			//select mates and breed a new generation
-			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
-			population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
-
-			//find the champion of the current generation
-			Sudoking = Best(population);
-
-			bestFit = Sudoking.Fitness;
-			cout << "best score: " << bestFit << endl;
-
-			//Add the current best (Sudoking) to the list of champions
-			champions[generation - 1] = Sudoking;
-
-			Sudokoid::deletePuzzles(); //delete puzzles to prevent memory leaks
-
-			//test to see if there's a streak and if we need to restart.
-
-			if(lastBest == bestFit)
+			int size = 0;
+			MPI_Group_size (grp, &size);
+			cout << size << endl; 
+			while(bestFit > 0 && generation < generations)
 			{
-				//this was a tie.
-				tieStreak++;
+				//create a new generation
+				generation++;
+				//cout << "Generation " << generation << ": ";
+
+				//select mates and breed a new generation
+				vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
+				population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
+
+				//find the champion of the current generation
+				Sudoking = Best(population);
+
+				bestFit = Sudoking.Fitness;
+				//cout << "best score: " << bestFit << endl;
+
+				//Add the current best (Sudoking) to the list of champions
+				champions[generation - 1] = Sudoking;
+
+				Sudokoid::deletePuzzles(); //delete puzzles to prevent memory leaks
+
+				//test to see if there's a streak and if we need to restart.
+
+				if(lastBest == bestFit)
+				{
+					//this was a tie.
+					tieStreak++;
+				}
+
+				lastBest = bestFit;
+
+				if(tieStreak >= restart_threshold)
+				{
+					//restart
+					//cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
+					//generate the inital population
+
+					Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
+					Progenitor.Dimension = sqrt ( grid_dimension ) ; // 3 x 3 cells
+					population = GenerateInitialPopulation( Progenitor, population_size );
+
+					lastBest = INT_MAX; //the last best, used to find streaks.
+					tieStreak = 0; //the number of generations which have been a tie
+				}
+
 			}
-
-			lastBest = bestFit;
-
-			if(tieStreak >= restart_threshold)
+			if (bestFit == 0) // solution was found, stop threads
 			{
-				//restart
-				cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
-				//generate the inital population
-
-				Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
-				Progenitor.Dimension = sqrt ( grid_dimension ) ; // 3 x 3 cells
-				population = GenerateInitialPopulation( Progenitor, population_size );
-
-				lastBest = INT_MAX; //the last best, used to find streaks.
-				tieStreak = 0; //the number of generations which have been a tie
+				// Broadcast bestFit so other threads stop. 
+				// Send back solution
 			}
-
+			else
+			{
+				// wait for other threads in group 
+				// send back champions so best solution can be found 
+			}
 		}
 
-	//select the best of all champion solutions as the best solution
-	champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-	BestSolution = Best(champions);
+		MPI_Finalize();
+	
+			
+		//select the best of all champion solutions as the best solution
+		//champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
+		//BestSolution = Best(champions);
 	}
 
 	cout << "\nBest Solution: \n\n";
 	Puzzle(&BestSolution).output(cout);
-		
+	
 	//clear the heap of the beginning puzzle and any remaining puzzles
 	Sudokoid::deletePuzzles();
 	delete FirstPuzzleSudokoid.puzzle;
+	
 	return 0;
 }
