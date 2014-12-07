@@ -11,14 +11,14 @@ demintion of the Puzzle->solution array to store possiblities.
 Parameter:
 	Puzzle &p - an instance of the Puzzle class containing the puzzle
 		to be solved
-******************************************************************************/
-void SimpleSolver::ssolve(Puzzle &p)
+******************************************************************************/ 
+int SimpleSolver::ssolve(char p[9][9][10])
 {
 	int score, score2;
 	
 	do
 	{
-		score = p.getSolutionScore();
+		score = getSolutionScore(p);
 		
 		resetPossiblities(p);
 		
@@ -51,11 +51,12 @@ void SimpleSolver::ssolve(Puzzle &p)
 		hiddenSingleSquare(6, 6, p);			 
 		
 		//return if no progress is being made
-		score2 = p.getSolutionScore();	
+		score2 = getSolutionScore(p);	
 		if(score2 == score)
-			return;
+			return score;
 					
 	}while(score > 0);
+	return 0;
 }
 
 /******************************************************************************
@@ -67,7 +68,7 @@ Parameters:
 	int x - starting location in the 1st diminsion
 	int y - starting location in the 2nd diminsion
 ******************************************************************************/ 
-void SimpleSolver::markSqrPossiblities(int x, int y, Puzzle &p)
+void SimpleSolver::markSqrPossiblities(int x, int y, char solution[9][9][10])
 {
 	int i, j, m, k = 0;
 	char tarry[9];
@@ -76,7 +77,7 @@ void SimpleSolver::markSqrPossiblities(int x, int y, Puzzle &p)
 	{
 		for(j = y; j < y+3; j++)
 		{
-			tarry[k] = p.solution[i][j][0];
+			tarry[k] = solution[i][j][0];
 			k++;
 		}
 	}
@@ -89,7 +90,7 @@ void SimpleSolver::markSqrPossiblities(int x, int y, Puzzle &p)
 			{
 				for(j = y; j < y+3; j++)
 				{
-					p.solution[i][j][k] = '0';	
+					solution[i][j][k] = '0';	
 				}
 			}
 		}
@@ -104,7 +105,7 @@ Parameters:
 	int y - starting location in the 2nd deminsion
 	Puzzle &p - the puzzle
 ******************************************************************************/
-void SimpleSolver::hiddenSingleSquare(int x, int y, Puzzle &p)
+void SimpleSolver::hiddenSingleSquare(int x, int y, char sol[9][9][10])
 {
 	int i, j, k;
 	int n = -1;
@@ -118,7 +119,7 @@ void SimpleSolver::hiddenSingleSquare(int x, int y, Puzzle &p)
 		{
 			for(j = y; j < y+3; j++)
 			{
-				if(p.solution[i][j][k] == '1')
+				if(sol[i][j][k] == '1')
 				{
 						n = i;
 						m = j;
@@ -129,7 +130,7 @@ void SimpleSolver::hiddenSingleSquare(int x, int y, Puzzle &p)
 		//cout << "found: " << k  << " " << found << " times "<< " in square " << x << " " << y << endl;
 		if(found == 1)
 		{
-			p.solution[n][m][0] = k + '0';
+			sol[n][m][0] = k + '0';
 		}
 	}
 }
@@ -141,7 +142,7 @@ Sets possiblilies behind filled places to '0' and possiblities behind blanks to
 Parameter:
 	Puzzle &p - the puzzle
 ******************************************************************************/
-void SimpleSolver::resetPossiblities(Puzzle &p)
+void SimpleSolver::resetPossiblities(char sol[9][9][10])
 {
 	int i, j, k; 
 	char temp;
@@ -150,12 +151,12 @@ void SimpleSolver::resetPossiblities(Puzzle &p)
 	{
 		for(j = 0; j < 9; j++)
 		{
-			if (p.solution[i][j][0] == '-')
+			if (sol[i][j][0] == '-')
 				temp = '1';
 			else
 				temp = '0';
 			for(k = 1; k < 10; k++)
-				p.solution[i][j][k] = temp;
+				sol[i][j][k] = temp;
 		}	
 	}
 }
@@ -167,7 +168,7 @@ would create duplicates
 Parameter:
 	Puzzle &p - the puzzle
 ******************************************************************************/
-void SimpleSolver::mrkRowColmPossiblities(Puzzle &p)
+void SimpleSolver::mrkRowColmPossiblities(char sol[9][9][10])
 {
 	int i, j, k, x, y;
 	//narrow possiblities in rows and columns
@@ -175,16 +176,16 @@ void SimpleSolver::mrkRowColmPossiblities(Puzzle &p)
 	{
 		for(j = 0; j < 9 ; j++)
 		{
-			if(p.solution[i][j][0] != '-')
+			if(sol[i][j][0] != '-')
 			{
-				k = p.solution[i][j][0] - '0';
+				k = sol[i][j][0] - '0';
 				for(x = 0; x < 9; x++)
 				{
-					p.solution[x][j][k] = '0';
+					sol[x][j][k] = '0';
 				}
 				for(y = 0; y < 9; y++)
 				{
-					p.solution[i][y][k] = '0';
+					sol[i][y][k] = '0';
 				}
 			}
 		}
@@ -197,7 +198,7 @@ Fills in places with only one possiblity marked behind them.
 Parameter:
 	Puzzle &p - the puzzle
 ******************************************************************************/
-void SimpleSolver::findNakedSingles(Puzzle &p)
+void SimpleSolver::findNakedSingles(char sol[9][9][10])
 {
 	int i, j, k, found;;
 	//fill in naked singles
@@ -205,12 +206,12 @@ void SimpleSolver::findNakedSingles(Puzzle &p)
 	{
 		for(j = 0; j < 9 ; j++)
 		{
-			if(p.solution[i][j][0] == '-')
+			if(sol[i][j][0] == '-')
 			{
 				found = 0;
 				for (k = 1; k < 10; k++)
 				{
-					if(p.solution[i][j][k] == '1')
+					if(sol[i][j][k] == '1')
 					{
 						if(found == 0)
 						{
@@ -224,7 +225,7 @@ void SimpleSolver::findNakedSingles(Puzzle &p)
 				}
 
 				if(found > 0)
-					p.solution[i][j][0] = found + '0';
+					sol[i][j][0] = found + '0';
 			}
 		}
 	}
@@ -237,7 +238,7 @@ row or column.
 Parameter:
 	Puzzle &p - the puzzle
 ******************************************************************************/
-void SimpleSolver::findHiddenSingleRowColn(Puzzle &p)
+void SimpleSolver::findHiddenSingleRowColn(char sol[9][9][10])
 {
 	int i, j, k, x, y;
 	int found;
@@ -252,7 +253,7 @@ void SimpleSolver::findHiddenSingleRowColn(Puzzle &p)
 			found = 0;
 			for(j = 0; j < 9; j++)
 			{
-				if(p.solution[i][j][k] == '1')
+				if(sol[i][j][k] == '1')
 				{
 					x = i;
 					y = j;
@@ -261,7 +262,7 @@ void SimpleSolver::findHiddenSingleRowColn(Puzzle &p)
 			}
 			if(found == 1)
 			{
-				p.solution[x][y][0] = k + '0';					
+				sol[x][y][0] = k + '0';					
 			}
 		}
 		//check rows
@@ -272,7 +273,7 @@ void SimpleSolver::findHiddenSingleRowColn(Puzzle &p)
 			found = 0;
 			for(i = 0; i < 9; i++)
 			{
-				if(p.solution[i][j][k] == '1')
+				if(sol[i][j][k] == '1')
 				{
 					x = i;
 					y = j;
@@ -281,8 +282,149 @@ void SimpleSolver::findHiddenSingleRowColn(Puzzle &p)
 			}
 			if(found == 1)
 			{
-				p.solution[x][y][0] = k + '0';
+				sol[x][y][0] = k + '0';
 			}
 		}
 	}	
+}
+
+/******************************************************************************
+Get Solution Score
+Calculates a score for the solution taking into account blank spaces and
+duplicates in rows, columns, and squares. Better solutions will get lower
+scores. A perfect solution recieves a score of 0.
+******************************************************************************/
+int SimpleSolver::getSolutionScore(char sol[9][9][10])
+{
+	int score = 0;
+
+	//check for blanks
+	score = countBlanks(sol);
+
+	//check rows for duplicates
+	score += rowDuplicates(sol);
+
+	//check columns for duplicates
+	score += colDuplicates(sol);
+
+	//check for duplicates in squares
+	score += squareDuplicates(0, 0, sol);
+	score += squareDuplicates(0, 3, sol);
+	score += squareDuplicates(0, 6, sol);
+	score += squareDuplicates(3, 0, sol);
+	score += squareDuplicates(3, 3, sol);
+	score += squareDuplicates(3, 6, sol);
+	score += squareDuplicates(6, 0, sol);
+	score += squareDuplicates(6, 3, sol);
+	score += squareDuplicates(6, 6, sol);
+
+	return score;
+}
+
+/******************************************************************************
+Square  Duplicates
+Counts pairs of duplicates in a 3 x 3 square.
+Parameters:
+int x - the start of the square in the 1st dimension
+int y - the start of the square in the 2nd dimension
+******************************************************************************/
+int SimpleSolver::squareDuplicates(int x, int y, char sol[9][9][10])
+{
+	int i, j, k = 0, score = 0;
+	char tarry[9];
+
+	for (i = x; i < x + 3; i++)
+	{
+		for (j = y; j < y + 3; j++)
+		{
+			tarry[k] = sol[i][j][0];
+			k++;
+		}
+	}
+	for (i = 0; i < 9; i++)
+	{
+		if (tarry[i] != '-')
+		{
+			for (k = i + 1; k < 9; k++)
+			{
+				if (tarry[i] == tarry[k])
+					score++;
+			}
+		}
+	}
+	return score;
+}
+
+/******************************************************************************
+Row Duplicates
+Counts pairs of row duplicates
+******************************************************************************/
+int SimpleSolver::rowDuplicates(char sol[9][9][10])
+{
+	int i, j, k, score = 0;
+	char temp;
+	for (i = 0; i < 9; i++)
+	{
+		for (j = 0; j < 9; j++)
+		{
+			if (sol[i][j][0] != '-')
+			{
+				temp = sol[i][j][0];
+				for (k = j + 1; k < 9; k++)
+				{
+					if (sol[i][k][0] == temp)
+					{
+						score++;
+					}
+				}
+			}
+		}
+	}
+	return score;
+}
+
+/******************************************************************************
+Count Blanks
+Counts the blank spaces in a solution
+******************************************************************************/
+int SimpleSolver::countBlanks(char sol[9][9][10])
+{
+	int i, j, score = 0;
+	for (i = 0; i<9; i++)
+	{
+		for (j = 0; j<9; j++)
+		{
+			if (sol[i][j][0] == '-')
+				score++;
+		}
+	}
+	return score;
+}
+
+/******************************************************************************
+Column Duplicates
+Counts Pairs of column duplicates
+******************************************************************************/
+int SimpleSolver::colDuplicates(char sol[9][9][10])
+{
+	int i, j, k, score = 0;
+	char temp;
+	for (j = 0; j < 9; j++)
+	{
+		for (i = 0; i < 9; i++)
+		{
+			if (sol[i][j][0] != '-')
+			{
+				temp = sol[i][j][0];
+				for (k = i + 1; k < 9; k++)
+				{
+					if (sol[k][j][0] == temp)
+					{
+						score++;
+					}
+				}
+			}
+		}
+	}
+	return score;
 }

@@ -1,4 +1,3 @@
-#include <mpi.h>
 #include <iostream>
 #include <vector>
 #include <random>
@@ -6,7 +5,7 @@
 #include <fstream>
 #include <exception>
 #include <cstdlib>
-
+#include "Puz.h"
 using namespace std;
 
 /* User defined Macros */
@@ -32,6 +31,11 @@ class Sudokoid
 {
 
 	public:
+		struct puzz
+		{
+			int puzzle[9][9];
+			int lock[3][3];
+		};
 		struct SudokuCell
 		{
 			int CellDimension;	//The width/height of the sudoku cell
@@ -69,6 +73,7 @@ class Sudokoid
 		void fillCells();
 		void lockCells();
 		void Fit();
+		static int Fit(Puz &sol);
 		Sudokoid Mate( Sudokoid mate, double mutationRate );
 		void Print( ostream& cout);
 		

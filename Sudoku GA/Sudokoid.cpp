@@ -280,8 +280,21 @@ while 0 means that no cells were complete and no rows were complete.
 ******************************************************************************/
 void Sudokoid::Fit()
 {
-	SimpleSolver::ssolve(*puzzle);
-	Fitness = puzzle->getSolutionScore();
+	Fitness = SimpleSolver::ssolve(((*puzzle).solution.sol));
+}
+
+/******************************************************************************
+Fit
+Stores the fitness of the current Sudokoid by evaluating how close
+it is to a solution.
+
+100 means a perfect solution,
+while 0 means that no cells were complete and no rows were complete.
+******************************************************************************/
+int Sudokoid::Fit(Puz &sol)
+{
+	int fitness = SimpleSolver::ssolve(sol.sol);
+	return fitness;
 }
 
 /******************************************************************************
@@ -314,7 +327,7 @@ Sudokoid::Sudokoid(Puzzle *puzzleIn)
 	{
 		for( int j = 0; j < 9; j++ ) //col
 		{
-			(Cells[i/3][j/3]).Cell[i%3][j%3] = puzzle->solution[i][j][0];
+			(Cells[i/3][j/3]).Cell[i%3][j%3] = puzzle->solution.sol[i][j][0];
 		}
 	}
 }

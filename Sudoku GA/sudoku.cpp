@@ -240,12 +240,26 @@ returns - the top selectionRate fraction of Sudokoids
 vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
-	for (unsigned int k = 0; k < population.size(); k++)
+	Puz *sol;
+	int *fitness;
+	
+	sol = (Puz*)malloc(sizeof(Puz)*population.size());
+	fitness = (int*)malloc(sizeof(int)*population.size());
+
+	for (unsigned int i = 0; i < population.size(); i++)
 	{
-		if(population[k].Fitness == INT_MAX)
-			population[k].Fit();
+		for (int j = 0; j < 9; j++)
+			for (int k = 0; k < 9; k++)
+				for (int n = 0; n < 10; n++)
+					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
+		fitness[i] = population[i].Fitness;
 	}
 
+	for (unsigned int i = 0; i < population.size(); i++)
+	{
+		if (fitness[i] == INT_MAX)
+			Sudokoid::Fit(sol[i]);
+	}
 	//sort a copy of the population
 	vector < Sudokoid > selected = population;
 	std::sort(selected.begin(), selected.end());
@@ -255,6 +269,8 @@ vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double
 
 	//change selected to only include the top Sudokoids
 	selected = vector<Sudokoid> (selected.begin(), selected.begin() + selectionIndex - 1);
+	free(sol);
+	free(fitness);
 	return selected;
 }
 
@@ -306,18 +322,35 @@ Sudokoid Best( vector <Sudokoid> population)
 		return Sudokoid();
 	}
 
+	Puz *sol;
+	int *fitness;
+
+	sol = (Puz*)malloc(sizeof(Puz)*population.size());
+	fitness = (int*)malloc(sizeof(int)*population.size());
+
+	for (unsigned int i = 0; i < population.size(); i++)
+	{
+		for (int j = 0; j < 9; j++)
+			for (int k = 0; k < 9; k++)
+				for (int n = 0; n < 10; n++)
+					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
+		fitness[i] = population[i].Fitness;
+	}
+
 	for(unsigned int i = 0; i < population.size(); i++)
 	{
 		//make sure that the fitness has been calculated
-		if(population[i].Fitness == INT_MAX)
-			population[i].Fit();
+		if(fitness[i] == INT_MAX)
+			Sudokoid::Fit(sol[i]);
 
-		if(population[i].Fitness < lowest)
+		if(fitness[i] < lowest)
 		{
-			lowest = population[i].Fitness;
+			lowest = fitness[i];
 			lowestIndex = i;
 		}
 	}
+	free(sol);
+	free(fitness);
 	return population[lowestIndex];
 }
 

@@ -23,7 +23,7 @@ Puzzle::Puzzle(istream & _in)
 	{
 		for(int j=0; j < 9; j++)
 		{
-			_in >> solution[i][j][0];
+			_in >> solution.sol[i][j][0];
 		}
 	}
 	
@@ -41,7 +41,7 @@ Puzzle::Puzzle(Sudokoid* const sudokoid)
 	{
 		for( int j = 0; j < 9; j++ ) //col
 		{
-			solution[i][j][0] = (sudokoid->Cells[i/3][j/3]).Cell[i%3][j%3];
+			solution.sol[i][j][0] = (sudokoid->Cells[i/3][j/3]).Cell[i%3][j%3];
 		}
 	}
 }
@@ -58,7 +58,7 @@ Puzzle::Puzzle(Puzzle* const puzzle)
 	{
 		for( int j = 0; j < 9; j++ ) //col
 		{
-			solution[i][j][0] = puzzle->solution[i][j][0];
+			solution.sol[i][j][0] = puzzle->solution.sol[i][j][0];
 		}
 	}
 }
@@ -75,7 +75,7 @@ void Puzzle::output(ostream & _out)
 	{
 		for(int j=0; j < 9; j++)
 		{
-			_out << solution[i][j][0] << " ";
+			_out << solution.sol[i][j][0] << " ";
 			if(j == 2||j == 5 || j == 8)
 				_out << " ";
 			
@@ -87,10 +87,10 @@ void Puzzle::output(ostream & _out)
 }		
 
 /******************************************************************************
-Get Solution Score
-Calculates a score for the solution taking into account blank spaces and 
-duplicates in rows, columns, and squares. Better solutions will get lower 
-scores. A perfect solution recieves a score of 0.
+Get solution.sol Score
+Calculates a score for the solution.sol taking into account blank spaces and 
+duplicates in rows, columns, and squares. Better solution.sols will get lower 
+scores. A perfect solution.sol recieves a score of 0.
 ******************************************************************************/ 
 int Puzzle::getSolutionScore()
 {
@@ -121,7 +121,7 @@ int Puzzle::getSolutionScore()
 
 /******************************************************************************
 Count Blanks
-Counts the blank spaces in a solution
+Counts the blank spaces in a solution.sol
 ******************************************************************************/
 int Puzzle::countBlanks()
 {
@@ -130,7 +130,7 @@ int Puzzle::countBlanks()
 	{
 		for(j=0; j<9;j++)
 		{
-			if(solution[i][j][0] == '-')
+			if(solution.sol[i][j][0] == '-')
 				score++;
 		}
 	}
@@ -149,12 +149,12 @@ int Puzzle::rowDuplicates()
 	{
 		for(j = 0; j < 9;j++)
 		{
-			if (solution[i][j][0] != '-')
+			if (solution.sol[i][j][0] != '-')
 			{
-				temp = solution[i][j][0];
+				temp = solution.sol[i][j][0];
 				for(k = j+1; k < 9; k++)
 				{
-					if (solution[i][k][0] == temp)
+					if (solution.sol[i][k][0] == temp)
 					{
 						score++;
 					}
@@ -177,12 +177,12 @@ int Puzzle::colDuplicates()
 	{
 		for(i = 0; i < 9; i++)
 		{
-			if (solution[i][j][0] != '-')
+			if (solution.sol[i][j][0] != '-')
 			{
-				temp = solution[i][j][0];
+				temp = solution.sol[i][j][0];
 				for(k = i+1;k < 9; k++)
 				{
-					if (solution[k][j][0] == temp)
+					if (solution.sol[k][j][0] == temp)
 					{
 						score++;
 					}
@@ -209,7 +209,7 @@ int Puzzle::squareDuplicates(int x, int y)
 	{
 		for(j = y; j < y+3; j++)
 		{
-			tarry[k] = solution[i][j][0];
+			tarry[k] = solution.sol[i][j][0];
 			k++;
 		}
 	}
