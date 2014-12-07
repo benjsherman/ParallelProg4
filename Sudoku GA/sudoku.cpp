@@ -448,7 +448,8 @@ int main(int argc, char *argv[])
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
 		bool cont = true;
-		MPI_Group grp, g1 ; 
+		MPI_Group grp, g1;
+		MPI_Comm sub_comm; 
 		int* grp_ranks;
 		int dummy[1];
 					
@@ -462,33 +463,33 @@ int main(int argc, char *argv[])
 
 		if (my_rank == 0)
 			for (i = 1; i < processes; i++)
-				grp_ranks[i-1] = i;
-	
+				grp_ranks[i-1] = i;	
+
 		MPI_Bcast (grp_ranks, processes-1, MPI_INT, 0, comm);
 		MPI_Group_incl (g1, processes - 1, grp_ranks, &grp);
+	
+		MPI_Comm_create (comm, grp, &sub_comm);
 
 		if (my_rank == 0)
 		{	
 			// Champs received from each thread are stored here
 			vector < vector <Sudokoid> > threadBestsChamps;			
-		
-			while (cont)
-			{
-				if (bestFit == 0)
-					cont = false;
-			}	
+
+		//	while (cont)
+		//	{
+		//		if (bestFit == 0)
+		//			cont = false;
+		//	}	
 		}	
 		//if not, begin the generational looping
 		else if (my_rank != 0)
 		{
-			int size = 0;
-			MPI_Group_size (grp, &size);
-			cout << size << endl; 
 			while(bestFit > 0 && generation < generations)
 			{
 				//create a new generation
 				generation++;
-				//cout << "Generation " << generation << ": ";
+
+				cout << "MY_RANK: " << my_rank << " Generation " << generation << ": ";
 
 				//select mates and breed a new generation
 				vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
@@ -498,7 +499,7 @@ int main(int argc, char *argv[])
 				Sudoking = Best(population);
 
 				bestFit = Sudoking.Fitness;
-				//cout << "best score: " << bestFit << endl;
+				cout << "best score: " << bestFit << endl;
 
 				//Add the current best (Sudoking) to the list of champions
 				champions[generation - 1] = Sudoking;
@@ -528,18 +529,21 @@ int main(int argc, char *argv[])
 					lastBest = INT_MAX; //the last best, used to find streaks.
 					tieStreak = 0; //the number of generations which have been a tie
 				}
+				
+			}
 
-			}
-			if (bestFit == 0) // solution was found, stop threads
+			int winnerRank;
+			if (bestFit == 0)
 			{
-				// Broadcast bestFit so other threads stop. 
-				// Send back solution
+				winnerRank = my_rank;
+				BestSolution = Best(champions);
+				//MPI_Finalize();
 			}
-			else
-			{
-				// wait for other threads in group 
-				// send back champions so best solution can be found 
-			}
+
+			// wait for other threads in group 
+			MPI_Barrier(sub_comm);
+			// send back champions so best solution can be found 
+			
 		}
 
 		MPI_Finalize();
