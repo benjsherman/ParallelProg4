@@ -134,6 +134,7 @@ Issues and Bugs - running multiple sudoku proccesses on the same file simeltaneo
 #include <algorithm>
 #include <math.h>
 #include "SimpleSolver.h"
+#include <mpi.h>
 
 
 //Deletion lists for memory managment
@@ -141,6 +142,17 @@ vector <Puzzle*> Sudokoid::DeleteList = vector <Puzzle*> ();
 
 //Whether or not debugging messages should be displayed
 bool debugging = false;
+
+// Global variables
+int ID;
+int P;
+int N;
+/* User defined Macros */
+#define BLOCK_LOW(id,p,n)	((id)*(n)/(p))
+#define BLOCK_HIGH(id,p,n)	(BLOCK_LOW((id)+1,p,n)-1)
+#define BLOCK_SIZE(id,p,n)	(BLOCK_HIGH(id,p,n)-BLOCK_LOW(id,p,n)+1)
+#define BLOCK_OWNER(j,p,n)	(((p)*((j)+1)-1)/(n))
+
 
 /**************************************************************************************************************
 GeneratePopulation
@@ -372,6 +384,11 @@ returns - an error code, but only returns 0 for now.  Errors information
 
 int main(int argc, char *argv[])
 {
+	MPI_Init(&argc, &argv);
+	
+	MPI_Comm_size(MPI_COMM_WORLD, &P);
+	MPI_Comm_rank(MPI_COMM_WORLD, &ID);
+	
 	//seed the random number generator
 	srand ( time(NULL) );
 	//ignore the first few results to avoid similarities between trials done within a short period of time.
@@ -383,7 +400,7 @@ int main(int argc, char *argv[])
 
 	//set up default parameters (including genetic operators)
 	char *filename; 
-	int population_size = 1000;
+	int population_size = N =1000;
 	int generations = 1000;
 	double selection_rate = 0.5;
 	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
@@ -402,7 +419,7 @@ int main(int argc, char *argv[])
 			}
 		case 5: selection_rate = atof(argv[4]);
 		case 4: generations = atoi(argv[3]);
-		case 3: population_size = atoi(argv[2]);
+		case 3: population_size = N = atoi(argv[2]);
 		case 2: filename = argv[1];
 			break; //done with arguments
 		default: cout << "Accepts 1 to 5 arguments.\n";
@@ -534,5 +551,6 @@ int main(int argc, char *argv[])
 	//clear the heap of the beginning puzzle and any remaining puzzles
 	Sudokoid::deletePuzzles();
 	delete FirstPuzzleSudokoid.puzzle;
+	MPI_Finalize();
 	return 0;
 }

@@ -1,15 +1,7 @@
 using namespace std;
 
-class Puz
+struct Puz
 {
 	public:
-		char sol[9][9][10];
-		Puz()
-		{
-
-		}
-		~Puz()
-		{
-
-		}
+		char solution[9][9][10];
 };

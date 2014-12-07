@@ -12,14 +12,8 @@ class Puzzle
 	public:
 		Puzzle(istream & _in);
 		Puzzle(Sudokoid* const sudokoid);
-		Puzzle(Puzzle* puzzle);
+		Puzzle(Puzzle* puz);
 		void output(ostream & _out);
-		Puz solution; //third dimension used to mark possible answers
-		int getSolutionScore();
+		Puz puzzle; //third dimension used to mark possible answers
 	private:
-		int solScore; //number of blank or duplicate values (0 is perfect score)
-		int countBlanks();
-		int rowDuplicates();
-		int colDuplicates();
-		int squareDuplicates(int x, int y);
 };
