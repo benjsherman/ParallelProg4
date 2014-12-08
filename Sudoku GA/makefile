@@ -1,4 +1,4 @@
-CXXFLAGS= -std=c++11 -Wall -O3
+CXXFLAGS= -g -std=c++11 -Wall -O3
 MPICXX = mpic++
 
 OBJS = sudoku.o SimpleSolver.o puzzle.o Sudokoid.o

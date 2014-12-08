@@ -252,26 +252,36 @@ returns - the top selectionRate fraction of Sudokoids
 vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
-	Puz *sol;
-	int *fitness;
+	Puz *sol, *rsol;
+	int *fitness, *rfitness;
 	
-	sol = (Puz*)malloc(sizeof(Puz)*population.size());
-	fitness = (int*)malloc(sizeof(int)*population.size());
+	sol = (Puz*)malloc(sizeof(Puz)*N);
+	rsol = (Puz*)malloc(sizeof(Puz)*N/P);
+	fitness = (int*)malloc(sizeof(int)*N);
+	rfitness = (int*)malloc(sizeof(int)*N/P);
+	
+	if(ID == 0)
+		for (int i = 0; i < N; i++)
+		{
+			for (int j = 0; j < 9; j++)
+				for (int k = 0; k < 9; k++)
+					for (int n = 0; n < 10; n++)
+						sol[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
+			fitness[i] = population[i].Fitness;
+		}
+	
+	MPI_Scatter(sol, 9*9*10*N/P, MPI_CHAR, rsol, 9*9*10*N/P, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Scatter(fitness, N/P, MPI_INT, rfitness, N/P, MPI_INT, 0, MPI_COMM_WORLD);
 
-	for (unsigned int i = 0; i < population.size(); i++)
+	for (int i = 0; i < N/P; i++)
 	{
-		for (int j = 0; j < 9; j++)
-			for (int k = 0; k < 9; k++)
-				for (int n = 0; n < 10; n++)
-					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
-		fitness[i] = population[i].Fitness;
+		if (rfitness[i] == INT_MAX)
+			rfitness[i] = Sudokoid::Fit(rsol[i]);
 	}
-
-	for (unsigned int i = 0; i < population.size(); i++)
-	{
-		if (fitness[i] == INT_MAX)
-			Sudokoid::Fit(sol[i]);
-	}
+	MPI_Gather(rfitness, N/P, MPI_INT, fitness, N/P, MPI_INT, 0, MPI_COMM_WORLD);
+	
+	for(int i = 0; i < N; i++)
+		population[i].Fitness = fitness[i];
 	//sort a copy of the population
 	vector < Sudokoid > selected = population;
 	std::sort(selected.begin(), selected.end());
@@ -281,9 +291,42 @@ vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double
 
 	//change selected to only include the top Sudokoids
 	selected = vector<Sudokoid> (selected.begin(), selected.begin() + selectionIndex - 1);
-	free(sol);
-	free(fitness);
 	return selected;
+
+	
+	
+	free(sol);
+	free(rsol);
+	free(fitness);
+	free(rfitness);
+	return selected;
+	
+}
+
+void SlaveSelectMatingPopulation( )
+{
+	//see if any of population needs to be fitted (should only occur on the first population)
+	Puz *sol, *rsol;
+	int *fitness, *rfitness;
+	
+	sol = (Puz*)malloc(sizeof(Puz)*N);
+	rsol = (Puz*)malloc(sizeof(Puz)*N/P);
+	fitness = (int*)malloc(sizeof(int)*N);
+	rfitness = (int*)malloc(sizeof(int)*N/P);
+	
+	MPI_Scatter(sol, 9*9*10*N/P, MPI_CHAR, rsol, 9*9*10*N/P, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Scatter(fitness, N/P, MPI_INT, rfitness, N/P, MPI_INT, 0, MPI_COMM_WORLD);
+	for (int i = 0; i < N/P; i++)
+	{
+		if (rfitness[i] == INT_MAX)
+			rfitness[i] = Sudokoid::Fit(rsol[i]);
+	}
+	MPI_Gather(rfitness, N/P, MPI_INT, fitness, N/P, MPI_INT, 0, MPI_COMM_WORLD);
+
+	free(sol);
+	free(rsol);
+	free(fitness);
+	free(rfitness);	
 }
 
 /******************************************************************************
@@ -325,45 +368,95 @@ Parameter:
 Sudokoid Best( vector <Sudokoid> population)
 {
 	int lowest = INT_MAX;
-	int lowestIndex = 0;
+	int lowestIndex[1] = {0};
+	int reducedLowest[1];
 
-	if(debugging)
-	{
-		cout<<population.size();
-		cout<<population[1].Fitness;
-		return Sudokoid();
-	}
+	Puz *sol, *rsol;
+	int *fitness, *rfitness;
 
-	Puz *sol;
-	int *fitness;
+	sol = (Puz*)malloc(sizeof(Puz)*N);
+	rsol = (Puz*)malloc(sizeof(Puz)*N/P);
+	fitness = (int*)malloc(sizeof(int)*N);
+	rfitness = (int*)malloc(sizeof(int)*N/P);
+	
+	if(sol == NULL || rsol == NULL || fitness == NULL || rfitness == NULL)
+		MPI_Abort(MPI_COMM_WORLD, -1);
+		
+	int n = population.size();
+	if(ID == 0)
+		for (int i = 0; i < n; i++)
+		{
+			for (int j = 0; j < 9; j++)
+				for (int k = 0; k < 9; k++)
+					for (int n = 0; n < 10; n++)
+						sol[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
+			fitness[i] = population[i].Fitness;
+		}
 
-	sol = (Puz*)malloc(sizeof(Puz)*population.size());
-	fitness = (int*)malloc(sizeof(int)*population.size());
-
-	for (unsigned int i = 0; i < population.size(); i++)
-	{
-		for (int j = 0; j < 9; j++)
-			for (int k = 0; k < 9; k++)
-				for (int n = 0; n < 10; n++)
-					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
-		fitness[i] = population[i].Fitness;
-	}
-
-	for(unsigned int i = 0; i < population.size(); i++)
+	MPI_Scatter(sol, 9*9*10*n/P, MPI_CHAR, rsol, 9*9*10*n/P, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Scatter(fitness, n/P, MPI_INT, rfitness, n/P, MPI_INT, 0, MPI_COMM_WORLD);
+	for(int i = 0; i < n/P; i++)
 	{
 		//make sure that the fitness has been calculated
-		if(fitness[i] == INT_MAX)
-			Sudokoid::Fit(sol[i]);
+		if(rfitness[i] == INT_MAX)
+			rfitness[i] = Sudokoid::Fit(rsol[i]);
 
-		if(fitness[i] < lowest)
+		if(rfitness[i] < lowest)
 		{
-			lowest = fitness[i];
-			lowestIndex = i;
+			lowest = rfitness[i];
+			lowestIndex[0] = i;
 		}
 	}
+	MPI_Reduce(lowestIndex, reducedLowest, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+
 	free(sol);
+	free(rsol);
 	free(fitness);
-	return population[lowestIndex];
+	free(rfitness);
+	return population[reducedLowest[0]];
+}
+
+void SlaveBest()
+{
+	int lowest = INT_MAX;
+	int lowestIndex[1] = {0};
+	int reducedLowest[1];
+
+	Puz *sol, *rsol;
+	int *fitness, *rfitness;
+
+	sol = (Puz*)malloc(sizeof(Puz)*N);
+	rsol = (Puz*)malloc(sizeof(Puz)*N/P);
+	fitness = (int*)malloc(sizeof(int)*N);
+	rfitness = (int*)malloc(sizeof(int)*N/P);
+	if(sol == NULL || rsol == NULL || fitness == NULL || rfitness == NULL)
+		MPI_Abort(MPI_COMM_WORLD,-1);
+
+
+	MPI_Scatter(sol, 9*9*10*N/P, MPI_CHAR, rsol, 9*9*10*N/P, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Scatter(fitness, N/P, MPI_INT, rfitness, N/P, MPI_INT, 0, MPI_COMM_WORLD);
+	for(int i = 0; i < N/P; i++)
+	{
+		//make sure that the fitness has been calculated
+		if(rfitness[i] == INT_MAX)
+			rfitness[i] = Sudokoid::Fit(rsol[i]);
+
+		if(rfitness[i] < lowest)
+		{
+			lowest = rfitness[i];
+			lowestIndex[0] = i;
+		}
+	}
+	// add offset
+	lowestIndex[0] += ID*N/P;
+	MPI_Reduce(lowestIndex, reducedLowest, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+
+	//MPI_Send
+
+	free(sol);
+	free(rsol);
+	free(fitness);
+	free(rfitness);
 }
 
 /******************************************************************************
@@ -404,8 +497,9 @@ int main(int argc, char *argv[])
 	int generations = 1000;
 	double selection_rate = 0.5;
 	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
-
 	//look for first few arguments
+	
+	int done[1] = {0};
 	switch(argc)
 	{
 		case 7: restart_threshold = atoi(argv[6]);
@@ -431,42 +525,44 @@ int main(int argc, char *argv[])
 	Sudokoid FirstPuzzleSudokoid; //The Sudokoid holding nothing but a Puzzle.  
 				//Will be replaced with a Progenitor  if a GE is required for solution.
 	
-	fin.open(filename);
-	if(!fin.is_open())
+	if(ID == 0)
 	{
-		cout << "error opening file " << filename << endl;
-		return 1;
+		fin.open(filename);
+		if(!fin.is_open())
+		{
+			cout << "error opening file " << filename << endl;
+			return 1;
+		}
+		
+		try
+		{
+			FirstPuzzleSudokoid.puzzle = new Puzzle(fin);
+			//this puzzle cannot be added to DeleteList in case we need to restart
+		}
+		catch(exception& e)
+		{
+			cout << e.what() << endl;
+		}
+		//close the file
+		fin.close();
+
+		//begin output	
+
+		cout << "Sudoku: " << filename << endl; 
+		cout << "population size = " << population_size << endl;
+		cout << "number of generations = " << generations << endl; 
+		cout << "selection rate = " << selection_rate << endl;
+		cout << "mutation rate = " << mutation_rate << endl;
+		//cout << "restart threshold = " << restart_threshold << "\n\n"; 
+
+		cout << "Initial configuration (" << grid_dimension << "x" << grid_dimension << "grid): \n\n";
+		FirstPuzzleSudokoid.Print(cout);
+		
+		cout << "\n\nFilling in predetermined squares:\n\n";
+		FirstPuzzleSudokoid.Fit();
+		FirstPuzzleSudokoid.Print(cout);
+		cout << endl;
 	}
-	
-	try
-	{
-		FirstPuzzleSudokoid.puzzle = new Puzzle(fin);
-		//this puzzle cannot be added to DeleteList in case we need to restart
-	}
-	catch(exception& e)
-	{
-		cout << e.what() << endl;
-	}
-	//close the file
-	fin.close();
-
-	//begin output	
-
-	cout << "Sudoku: " << filename << endl; 
-	cout << "population size = " << population_size << endl;
-	cout << "number of generations = " << generations << endl; 
-	cout << "selection rate = " << selection_rate << endl;
-	cout << "mutation rate = " << mutation_rate << endl;
-	//cout << "restart threshold = " << restart_threshold << "\n\n"; 
-
-	cout << "Initial configuration (" << grid_dimension << "x" << grid_dimension << "grid): \n\n";
-	FirstPuzzleSudokoid.Print(cout);
-	
-	cout << "\n\nFilling in predetermined squares:\n\n";
-	FirstPuzzleSudokoid.Fit();
-	FirstPuzzleSudokoid.Print(cout);
-	cout << endl;
-
 	//variables for the GE
 	vector < Sudokoid > population; //a vector containing the current generation of solutions
 	vector < Sudokoid > champions; //a vector containing every best solution from each generation
@@ -474,11 +570,11 @@ int main(int argc, char *argv[])
 	Sudokoid BestSolution; //the final best solution
 
 	//check to see if a GE solution is even neccessary
-	if(FirstPuzzleSudokoid.Fitness == 0)
+	if(ID == 0 && FirstPuzzleSudokoid.Fitness == 0)
 	{
 		BestSolution = Sudokoid(FirstPuzzleSudokoid.puzzle);
 	}
-	else
+	else if(ID == 0)
 	{
 		champions.resize(generations);
 
@@ -487,7 +583,7 @@ int main(int argc, char *argv[])
 		int generation = 0;
 		Sudokoid Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
 		Progenitor.Dimension = sqrt ( grid_dimension ) ; // 3 x 3 cells
-		population = GenerateInitialPopulation( Progenitor, population_size );
+		population = GenerateInitialPopulation( Progenitor, N );
 
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
@@ -501,7 +597,7 @@ int main(int argc, char *argv[])
 
 			//select mates and breed a new generation
 			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
-			population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
+			population = GeneratePopulation(MatingPopulation, mutation_rate, N);			
 
 			//find the champion of the current generation
 			Sudoking = Best(population);
@@ -532,25 +628,60 @@ int main(int argc, char *argv[])
 
 				Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
 				Progenitor.Dimension = sqrt ( grid_dimension ) ; // 3 x 3 cells
-				population = GenerateInitialPopulation( Progenitor, population_size );
+				population = GenerateInitialPopulation( Progenitor, N );
 
 				lastBest = INT_MAX; //the last best, used to find streaks.
 				tieStreak = 0; //the number of generations which have been a tie
 			}
+			if(bestFit == 0)
+				done[0] = 1;
+			MPI_Bcast(done, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		}
+		
+		// for(int i = 0; i < champions.size(); i++)
+			// champions[i + generation -1].Fitness -= 1;
+		//	cout << "i: " << i << " " <<  champions[i].Fitness << endl;
+		//select the best of all champion solutions as the best solution
+		champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
+		BestSolution = Best(champions);
+		
+		cout << "\nBest Solution: \n\n";
+		Puzzle(&BestSolution).output(cout);
+	}
+	else
+	{
+		//generate the inital population
+		int generation = 0;
+
+		//if not, begin the generational looping
+		while(generation < generations)
+		{
+			//create a new generation
+			generation++;
+			//select mates and breed a new generation
+			SlaveSelectMatingPopulation();
+
+			//find the champion of the current generation
+			SlaveBest();
+
+			Sudokoid::deletePuzzles(); //delete puzzles to prevent memory leaks
+			MPI_Bcast(done, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			if(done[0] != 0)
+				generation = generations;
 
 		}
-
-	//select the best of all champion solutions as the best solution
-	champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-	BestSolution = Best(champions);
+		//select the best of all champion solutions as the best solution
+		SlaveBest();
 	}
 
-	cout << "\nBest Solution: \n\n";
-	Puzzle(&BestSolution).output(cout);
+
 		
 	//clear the heap of the beginning puzzle and any remaining puzzles
-	Sudokoid::deletePuzzles();
-	delete FirstPuzzleSudokoid.puzzle;
+	if(ID == 0)
+	{
+		Sudokoid::deletePuzzles();
+		delete FirstPuzzleSudokoid.puzzle;
+	}
 	MPI_Finalize();
 	return 0;
 }

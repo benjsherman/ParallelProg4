@@ -280,7 +280,7 @@ while 0 means that no cells were complete and no rows were complete.
 ******************************************************************************/
 void Sudokoid::Fit()
 {
-	Fitness = SimpleSolver::ssolve(((*puzzle).solution.sol));
+	Fitness = SimpleSolver::ssolve(((*puzzle).puzzle.solution));
 }
 
 /******************************************************************************
@@ -293,7 +293,7 @@ while 0 means that no cells were complete and no rows were complete.
 ******************************************************************************/
 int Sudokoid::Fit(Puz &sol)
 {
-	int fitness = SimpleSolver::ssolve(sol.sol);
+	int fitness = SimpleSolver::ssolve(sol.solution);
 	return fitness;
 }
 
@@ -327,7 +327,7 @@ Sudokoid::Sudokoid(Puzzle *puzzleIn)
 	{
 		for( int j = 0; j < 9; j++ ) //col
 		{
-			(Cells[i/3][j/3]).Cell[i%3][j%3] = puzzle->solution.sol[i][j][0];
+			(Cells[i/3][j/3]).Cell[i%3][j%3] = puzzle->puzzle.solution[i][j][0];
 		}
 	}
 }
