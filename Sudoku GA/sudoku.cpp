@@ -428,9 +428,6 @@ int main(int argc, char *argv[])
 	Sudokoid Sudoking; //the best solution so far
 	Sudokoid BestSolution; //the final best solution
 
-
-	int winnerRank = -100;  // if solution is found, this will be the rank of the finder, for output
-
 	//check to see if a GE solution is even neccessary
 	if(FirstPuzzleSudokoid.Fitness == 0)
 	{
@@ -464,26 +461,15 @@ int main(int argc, char *argv[])
 		if (my_rank == 0)
 		{	
 			// Champs received from each thread are stored here
-			vector < vector <Sudokoid> > threadBestsChamps;	// if all processes don't find solution fill this up and find best
-			
 			while (!recv)
 				MPI_Iprobe (MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &recv, &status);
 			
 			// gets to here when a 0 is sent, may not be receving or sending
 			int sender = status.MPI_SOURCE;
-			int tag = status.MPI_TAG;
 
 			MPI_Recv (&cont, 1, MPI_INT, sender, MPI_ANY_TAG, comm, &status);
-		
 			for (i = 1; i < processes; i++)  // may not be sending or others may not be receiveing
 				MPI_Send (&recv, 1, MPI_INT, i, 0, comm); 
-
-			if (tag == 10)  // solution found
-			{
-				
-			}
-			else //solution not found
-			{}
 		}	
 		//if not, begin the generational looping
 		else if (my_rank != 0)
@@ -542,9 +528,6 @@ int main(int argc, char *argv[])
 			if (bestFit == 0 )
 			{
 				cont = 0;			
-
-				champions.resize(generation);
-				BestSolution = Best(champions);	
 				MPI_Send(&cont, 1, MPI_INT, 0, 10, comm);
 			}
 			// else gather all champions and find best, store in best solution 	 
@@ -573,7 +556,7 @@ int main(int argc, char *argv[])
 	
 	if (my_rank == globalResult[1])
 	{
-		cout << "\nBest Solution: \n\n";
+		cout << "\nBest Solution found by process " << my_rank << ": \n\n";
 		Puzzle(&BestSolution).output(cout);
 	}
 
