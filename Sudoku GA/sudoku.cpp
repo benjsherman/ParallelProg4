@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
 				winnerRank = my_rank;
 				cont = 0;
 
-//				BestSolution = Best(champions);	
+				BestSolution = Best(champions);	
 				MPI_Send(&cont, 1, MPI_INT, 0, 10, comm);
 			}
 			// else gather all champions and find best, store in best solution 	 
@@ -542,7 +542,7 @@ int main(int argc, char *argv[])
 			
 		//select the best of all champion solutions as the best solution
 		//champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-		//BestSolution = Best(champions);
+		BestSolution = Best(champions);
 	}
 
 	MPI_Finalize();
