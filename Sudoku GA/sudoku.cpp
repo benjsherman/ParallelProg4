@@ -415,7 +415,34 @@ Sudokoid Best( vector <Sudokoid> population)
 	free(rfitness);
 	return population[reducedLowest[0]];
 }
+/******************************************************************************
+Best
 
+returns the Sudokoid with the best fitness.  Returns the first sequentially
+in the case of a tie.
+
+Parameter:
+	population - the population to pick the best from
+******************************************************************************/
+Sudokoid SerialBest( vector <Sudokoid> population)
+{
+	int lowest = INT_MAX;
+	int lowestIndex = 0;
+
+	for(unsigned int i = 0; i < population.size(); i++)
+	{
+		//make sure that the fitness has been calculated
+		if(population[i].Fitness == INT_MAX)
+			population[i].Fit();
+
+		if(population[i].Fitness < lowest)
+		{
+			lowest = population[i].Fitness;
+			lowestIndex = i;
+		}
+	}
+	return population[lowestIndex];
+}
 void SlaveBest()
 {
 	int lowest = INT_MAX;
@@ -490,10 +517,13 @@ int main(int argc, char *argv[])
 	//constants, for now
 	int grid_dimension = 9;
 	int restart_threshold = 100;
+	int generation = 0;
+
+	double time = 0.0;
 
 	//set up default parameters (including genetic operators)
 	char *filename; 
-	int population_size = N =1000;
+	int population_size = N = 1000;
 	int generations = 1000;
 	double selection_rate = 0.5;
 	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
@@ -580,7 +610,6 @@ int main(int argc, char *argv[])
 
 		//generate the inital population
 		int bestFit = INT_MAX;
-		int generation = 0;
 		Sudokoid Progenitor = Sudokoid(FirstPuzzleSudokoid.puzzle);
 		Progenitor.Dimension = sqrt ( grid_dimension ) ; // 3 x 3 cells
 		population = GenerateInitialPopulation( Progenitor, N );
@@ -588,6 +617,7 @@ int main(int argc, char *argv[])
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
 
+		time = MPI_Wtime();
 		//if not, begin the generational looping
 		while(bestFit > 0 && generation < generations)
 		{
@@ -637,23 +667,20 @@ int main(int argc, char *argv[])
 				done[0] = 1;
 			MPI_Bcast(done, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		}
-		
+
+		time = MPI_Wtime() - time;
 		// for(int i = 0; i < champions.size(); i++)
 			// champions[i + generation -1].Fitness -= 1;
 		//	cout << "i: " << i << " " <<  champions[i].Fitness << endl;
 		//select the best of all champion solutions as the best solution
 		champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-		BestSolution = Best(champions);
+		BestSolution = SerialBest(champions);
 		
 		cout << "\nBest Solution: \n\n";
 		Puzzle(&BestSolution).output(cout);
 	}
 	else
 	{
-		//generate the inital population
-		int generation = 0;
-
-		//if not, begin the generational looping
 		while(generation < generations)
 		{
 			//create a new generation
@@ -668,17 +695,18 @@ int main(int argc, char *argv[])
 			MPI_Bcast(done, 1, MPI_INT, 0, MPI_COMM_WORLD);
 			if(done[0] != 0)
 				generation = generations;
-
 		}
 		//select the best of all champion solutions as the best solution
-		SlaveBest();
 	}
 
 
 		
 	//clear the heap of the beginning puzzle and any remaining puzzles
 	if(ID == 0)
-	{
+	{	
+		if(generation > 0)
+			cout << "\nAverage Time per seleting mating population and finding best individual: " 
+				 << time/generation << endl;
 		Sudokoid::deletePuzzles();
 		delete FirstPuzzleSudokoid.puzzle;
 	}
