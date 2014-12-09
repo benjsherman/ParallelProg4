@@ -171,7 +171,7 @@ Parameters:
 
 returns - the child population
 **************************************************************************************************************/
-vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, double mutationRate, int population_size)
+vector < Sudokoid > GeneratePopulation(vector < Sudokoid > &matingPopulation, double mutationRate, int population_size)
 {
 	double fitnessTotal = 0.0;
 	vector < double > fitnesses;
@@ -249,7 +249,7 @@ Parameters:
 
 returns - the top selectionRate fraction of Sudokoids
 ******************************************************************************/
-vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
+vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> &population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
 	Puz *sol;
@@ -263,7 +263,7 @@ vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double
 		for (int j = 0; j < 9; j++)
 			for (int k = 0; k < 9; k++)
 				for (int n = 0; n < 10; n++)
-					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
+					sol[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
 		fitness[i] = population[i].Fitness;
 	}
 
@@ -296,7 +296,7 @@ Parameters:
 	progenitor - the original best solution from the simple solver
 	population_size - the size of the population to be created
 ******************************************************************************/
-vector < Sudokoid > GenerateInitialPopulation( Sudokoid progenitor, int population_size )
+vector < Sudokoid > GenerateInitialPopulation( Sudokoid &progenitor, int population_size )
 {
 	vector < Sudokoid > population;
 	population.resize(population_size);
@@ -322,7 +322,7 @@ in the case of a tie.
 Parameter:
 	population - the population to pick the best from
 ******************************************************************************/
-Sudokoid Best( vector <Sudokoid> population)
+Sudokoid Best( vector <Sudokoid> &population)
 {
 	int lowest = INT_MAX;
 	int lowestIndex = 0;
@@ -345,7 +345,7 @@ Sudokoid Best( vector <Sudokoid> population)
 		for (int j = 0; j < 9; j++)
 			for (int k = 0; k < 9; k++)
 				for (int n = 0; n < 10; n++)
-					sol[i].sol[j][k][n] = (*population[i].puzzle).solution.sol[j][k][n];
+					sol[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
 		fitness[i] = population[i].Fitness;
 	}
 
@@ -366,6 +366,50 @@ Sudokoid Best( vector <Sudokoid> population)
 	return population[lowestIndex];
 }
 
+void migrate(vector<Sudokoid> &population, int migration_size)
+{
+	int pop_size = (int)population.size();
+	std::sort(population.begin(), population.end());
+	Puz *puz;;;
+	int *fitness;;
+	puz = (Puz*)malloc(sizeof(Puz)*migration_size);
+	fitness = (int*)malloc(sizeof(int)*migration_size);
+	
+	
+	if(puz == NULL || fitness == NULL)
+		MPI_Abort(MPI_COMM_WORLD, -1);
+	
+	for (int i = 0; i < migration_size; i++)
+	{
+		for (int j = 0; j < 9; j++)
+			for (int k = 0; k < 9; k++)
+				for (int n = 0; n < 10; n++)
+					puz[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
+		fitness[i] = population[i].Fitness;
+	}
+	
+	MPI_Sendrecv_replace(puz, migration_size*9*9*10, MPI_CHAR, ID,  0, 
+			     ID, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			 
+	MPI_Sendrecv_replace(fitness, migration_size, MPI_INT, ID,  0, 
+			     ID , 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			 
+	cout << "Made it to migation" << endl;
+	int offset;
+	for(int i = pop_size - migration_size; i < pop_size; i++)
+	{
+		offset = i - pop_size + migration_size;
+		//cout << "i: " << i << "\t i - pop_size + migrationsize: " << i - pop_size + migration_size << endl;
+		for (int j = 0; j < 9; j++)
+			for (int k = 0; k < 9; k++)
+				for (int n = 0; n < 10; n++)
+					(*population[i].puzzle).puzzle.solution[j][k][n] = puz[offset].solution[j][k][n];
+		population[i].Fitness = fitness[offset];
+	}
+	
+	free(puz);
+	free(fitness);
+}
 /******************************************************************************
 main
 The main function, where the top-level GE control happens and command line 
@@ -400,6 +444,8 @@ int main(int argc, char *argv[])
 
 	//set up default parameters (including genetic operators)
 	char *filename; 
+	unsigned int migration_rate = 10;
+	unsigned int migration_size = 10;
 	int population_size = N =1000;
 	int generations = 1000;
 	double selection_rate = 0.5;
@@ -408,8 +454,8 @@ int main(int argc, char *argv[])
 	//look for first few arguments
 	switch(argc)
 	{
-		case 7: restart_threshold = atoi(argv[6]);
-		case 6: mutation_rate = atof(argv[5]); //fall through to set the rest of the previous args
+		case 9: restart_threshold = atoi(argv[8]);
+		case 8: mutation_rate = atof(argv[7]); //fall through to set the rest of the previous args
 			if ( (mutation_rate != 0) && (mutation_rate > 100 || mutation_rate < .0001))
 			{
 				//because of how the mutation is calculated, any nonzero value below .0001
@@ -417,9 +463,11 @@ int main(int argc, char *argv[])
 				cout << "\nMutation rate must be between .0001 and 100, or 0\n";
 				return 0;
 			}
-		case 5: selection_rate = atof(argv[4]);
-		case 4: generations = atoi(argv[3]);
-		case 3: population_size = N = atoi(argv[2]);
+		case 7: selection_rate = atof(argv[6]);
+		case 6: generations = atoi(argv[5]);
+		case 5: population_size = N = atoi(argv[4]);
+		case 4: migration_size = atoi(argv[3]);
+		case 3: migration_rate = atoi(argv[2]);
 		case 2: filename = argv[1];
 			break; //done with arguments
 		default: cout << "Accepts 1 to 5 arguments.\n";
@@ -498,7 +546,12 @@ int main(int argc, char *argv[])
 			//create a new generation
 			generation++;
 			cout << "Generation " << generation << ": ";
-
+			
+			// migration
+			if(generation % migration_rate == 0)
+			{
+				migrate(population, migration_size);
+			}
 			//select mates and breed a new generation
 			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
 			population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
