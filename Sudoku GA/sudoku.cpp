@@ -166,14 +166,15 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	vector < Sudokoid > children;
 	fitnesses.resize(matingPopulation.size());
 	children.resize(population_size);
-
-#pragma omp parallel for num_threads(Sudokoid::GLOBAL_P)
-	for(unsigned int i = 0; i < matingPopulation.size(); i++)
+	unsigned int i;
+	#pragma omp parallel for private(i) shared(fitnesses) num_threads(Sudokoid::GLOBAL_P) schedule(static, 5)
+	for(i = 0; i < matingPopulation.size(); i++)
 	{
 		fitnesses[i] = 1.0 / matingPopulation[i].Fitness;
 		#pragma omp critical
 		fitnessTotal += fitnesses[i];
 	}
+	//cout<< "THREAD NUMBER IS " << Sudokoid::GLOBAL_P;
 
 	//set default values for the mates in case the random value lands on the last index
 	Sudokoid *mateA = &matingPopulation[matingPopulation.size() - 1];
@@ -181,6 +182,8 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	bool valid; //this will flag whether or not a certain mating was valid
 	int current = 0;
 
+	
+	srand (time(NULL));
 	//fill the child population
 	while(current < population_size)
 	{
@@ -188,7 +191,7 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 		//generate random number from 0 to fitnessTotal		
 		double roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
 		valid  = true;
-
+		
 		// can't use OMP because of undetermined loop exit
 		//subtract all values in the list until roulette passes or reaches 0
 		for(unsigned int i = 0; i < matingPopulation.size(); i++)
@@ -244,9 +247,11 @@ returns - the top selectionRate fraction of Sudokoids
 ******************************************************************************/
 vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
+	unsigned int k;
 	//see if any of population needs to be fitted (should only occur on the first population)
-	// OMP not used because of dependencies
-	for (unsigned int k = 0; k < population.size(); k++)
+	// Parallelizable
+	#pragma omp parallel for private(k) shared(population) num_threads(Sudokoid::GLOBAL_P) schedule(static, 5)
+	for ( k = 0; k < population.size(); k++)
 	{
 		if(population[k].Fitness == INT_MAX)
 			population[k].Fit();
@@ -305,20 +310,22 @@ Sudokoid Best( vector <Sudokoid> population)
 {
 	int lowest = INT_MAX;
 	int lowestIndex = 0;
-
+	unsigned int i;
 	if(debugging)
 	{
 		cout<<population.size();
 		cout<<population[1].Fitness;
 		return Sudokoid();
 	}
-	// No OMP because of dependencies
-	for(unsigned int i = 0; i < population.size(); i++)
+	// Parallelizable
+	#pragma omp parallel for private(i) shared(population,lowest) num_threads(Sudokoid::GLOBAL_P) schedule(static, 5)
+	
+	for(i = 0; i < population.size(); i++)
 	{
 		//make sure that the fitness has been calculated
 		if(population[i].Fitness == INT_MAX)
 			population[i].Fit();
-
+		#pragma omp critical
 		if(population[i].Fitness < lowest)
 		{
 			lowest = population[i].Fitness;
