@@ -11,14 +11,84 @@
 
 using namespace std;
 
+
+
+/**************************************/
+/*	Some non-member utility functions */
+/**************************************/
+
+
+
+/*****************************************************************************
+printGrid
+
+Prints a single 3x3 8tile grid to the screen.
+
+Paramaters:
+	grid - the 3x3 grid to print
+	cout - the stream to print to
+
+*****************************************************************************/
+void printGrid(int[][3] grid, ostream& cout)
+{
+    cout <<"\n\n";
+    for (int i = 0; i < 3; i++)
+    {
+        cout <<"\n";
+        for (int j = 0; j < 3; j++)
+        {
+            cout << grid[i][j] << " ";
+        }
+    }
+}
+
+/*****************************************************************************
+getScore
+
+ gets the Score of a single 3 x 3 8tile grid and returns it to the 
+ fitness function.  Utilizes the global variable Puzzle.
+ 
+ Parameter grid - the grid to evaluate.
+
+*****************************************************************************/
+int getScore(int[][3] grid)
+{
+    int score = 0;
+
+    for (int i = 1; i < 9; i++)
+    {
+        if(grid[(i-1)/3][(i-1)%3] != i)
+            score++;
+    }
+
+    if (grid[2][2] != 0)
+        score++;
+
+    return score;
+}
+
+
+
+
 // the starting puzzle, a 3x3
 int Puzzle[3][3];
 
+/*****************************************************************************
+readPuzzle
+
+Reads in the global 3x3 Puzzle from a specified stream.
+The first two values are the width and height, and the rest of the values are
+the tiles numbers at their positions.
+
+Paramater istream - the stream to read from.
+
+*****************************************************************************/
 void readPuzzle(istream & _in)
 {
 	int dim1, dim2;
 	
-	_in >> dim1 >> dim2;
+	_in >> dim1;
+	_in >> dim2;
 	if(dim1 != 3 || dim2 != 3)
 	{
 		throw new string("Only 3 by 3 puzzles are currently supported");
@@ -33,6 +103,26 @@ void readPuzzle(istream & _in)
 	}
 }
 
+/*****************************************************************************
+printPuzzle
+
+Prints a single 3x3 8tile grid to the screen.
+
+Paramaters:
+	grid - the 3x3 grid to print
+	cout - the stream to print to
+
+*****************************************************************************/
+void printPuzzle(ostream& cout)
+{
+    printGrid(Puzzle, cout);
+}
+
+
+/*****************************/
+/* Sudokoid Member Functions */
+/*****************************/
+
 
 /*****************************************************************************
 operator<
@@ -45,7 +135,7 @@ operator<
 bool Sudokoid::operator< (const Sudokoid &other) const 
 {
 	//compare the two and return the result
-	return this->Moves.Fitness < other.Moves.Fitness;
+	return this->Fitness < other.Fitness;
 }
 
 //constructors
@@ -55,40 +145,32 @@ Sudokoid::Sudokoid()
 
 }
 
-Sudokoid::Sudokoid(Solution solution)
+Sudokoid::Sudokoid(Sudokoid other)
 {
-    this->Moves = solution;
+	//copy constructor
+    this->copySolution(other.solution);
 }
 
-void printGrid(int[][3] grid)
-{
-    std::cout <<"\n\n";
-    for (int i = 0; i < 3; i++)
-    {
-        std::cout <<"\n";
-        for (int j = 0; j < 3; j++)
-        {
-            std::cout << grid[i][j] << " ";
-        }
-    }
-}
 
-//Solution methods
-void Sudokoid::copySolution( const Solution solution );
+/*****************************************************************************
+generateRandomSolution
 
+Fills all 100 spots in the solution with random moves
+
+*****************************************************************************/
 void Sudokoid::generateRandomSolution()
 {
     for(int i=0; i < 100; i++)
     {
         switch(rand()%4)
         {
-            case 0: this->Moves->Moves[i] = 'u';
+            case 0: this->Moves.Moves[i] = 'u';
                 break;
-            case 1: this->Moves->Moves[i] = 'd';
+            case 1: this->Moves.Moves[i] = 'd';
                 break;
-            case 2: this->Moves->Moves[i] = 'l';
+            case 2: this->Moves.Moves[i] = 'l';
                 break;
-            case 3: this->Moves->Moves[i] = 'r';
+            case 3: this->Moves.Moves[i] = 'r';
                 break;
             default:
         }
@@ -96,6 +178,31 @@ void Sudokoid::generateRandomSolution()
     this->Moves->Length = 100;
 }
 
+/*****************************************************************************
+copySolution
+
+Copies all elements from one solution to another.
+
+Parameter solution - the solution to copy
+*****************************************************************************/
+void Sudokoid::copySolution( const Solution solution )
+{
+	for(int i = 0; i < solution.Moves.Length; i++)
+	{
+		this->Moves.Moves[i] = solution.Moves.Moves[i];
+	}
+	this->Moves.Moves.Length = solution.Moves.Length;
+	this->Moves.Fitness = solution.Moves.Fitness;
+	this->Fitness = this->Moves.Fitness;
+}
+
+
+/*****************************************************************************
+Fit
+
+Steps through the puzzle steps and assigns a fitness to the solution
+
+*****************************************************************************/
 void Sudokoid::Fit()
 {
     int best_score = 10;
@@ -198,24 +305,17 @@ void Sudokoid::Fit()
 			numUsed++;
 		}_index+1;
     this->Moves.Fitness = best_score * 100 + best_index;
+	this->Fitness = this->Moves.Fitness;
 }
 
-int getScore(int[][3] grid)
-{
-    int score = 0;
+/*****************************************************************************
+Print
 
-    for (int i = 1; i < 9; i++)
-    {
-        if(grid[(i-1)/3][(i-1)%3] != i)
-            score++;
-    }
+Prints the solution steps and the 8tile puzzle's state at each step.
 
-    if (grid[2][2] != 0)
-        score++;
+Parameter cout - the stream to print to
 
-    return score;
-}
-
+*****************************************************************************/
 void Sudokoid::Print( ostream& cout)
 {
     // to keep track of the blank
@@ -290,24 +390,20 @@ void Sudokoid::Print( ostream& cout)
 
         if(valid)
         {
-            printGrid(puzzle);
+            printGrid(puzzle, cout);
         }
     }
 }
 
 /******************************************************************************
 Mate
-Returns a new offspring Sudokoid which has been crossed over and
-mutated to create a new Sudokoid solution.  Crossover is done
-on a cellular level, where each cell has the chance of being from
-one parent or the other with equal probability.
 
-Mutation is done is done on a subcellular level.  There is a mutationRate
-chance any given cell will have a single random swap of two non-locked values.
+Returns a new offspring Sudokoid which has been crossed over and
+mutated to create a new Sudokoid solution.
 
 Parameters:
 	mate - the Sudokoid to mate with
-	mutationRate - the chance that any given cell is a mutant
+	mutationRate - the chance that any given move is a mutant
 ******************************************************************************/
 Sudokoid Sudokoid::Mate( Sudokoid mate, double mutationRate )
 {

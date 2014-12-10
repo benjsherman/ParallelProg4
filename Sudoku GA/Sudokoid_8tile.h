@@ -15,16 +15,20 @@ using namespace std;
 #define BLOCK_SIZE(id,p,n)	(BLOCK_HIGH(id,p,n)-BLOCK_LOW(id,p,n)+1)
 #define BLOCK_OWNER(j,p,n)	(((p)*((j)+1)-1)/(n))
 
+// to read in the global puzzle
+void readPuzzle(istream &_in);
+void printPuzzle(ostream& cout);
+void printGrid(int[][3] grid, ostream& cout);
+
 /******************************************************************************
 Sudokoid
-contains information on a single sudoku solution
+contains information on a single 8tile puzzle solution
 for use in genetic algorithm functions in sudoku.cpp
 
 author - Derek Stotz
 
-SudokuCell
-holds information in a single cell of the sudoku grid 
-(a 9x9 grid would have 9 of these)
+Solution
+holds information for the moves made by the blank space in the puzzle
 ******************************************************************************/
 class Sudokoid
 {
@@ -32,13 +36,14 @@ class Sudokoid
 	public:
 		struct Solution
 		{
-            // cap the solution length at 1000
+            // cap the solution length at 100
 
 			int Length;	//The number of moves in the solution.
-            int Fitness;
+            int Fitness = INT_MAX;
 			char Moves[100];	//The moves
 		};
 
+		int Fitness = INT_MAX;
 		Solution Moves;  //the solution data
 
 		//constructors
