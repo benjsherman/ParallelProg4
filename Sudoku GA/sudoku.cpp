@@ -135,7 +135,7 @@ Issues and Bugs - running multiple sudoku proccesses on the same file simeltaneo
 #include <math.h>
 #include "SimpleSolver.h"
 #include <mpi.h>
-
+#include <unistd.h>
 
 //Deletion lists for memory managment
 vector <Puzzle*> Sudokoid::DeleteList = vector <Puzzle*> ();
@@ -147,6 +147,9 @@ bool debugging = false;
 int ID;
 int P;
 int N;
+int BROADCASTING_ISLAND;
+MPI_Comm shift_comm;
+
 /* User defined Macros */
 #define BLOCK_LOW(id,p,n)	((id)*(n)/(p))
 #define BLOCK_HIGH(id,p,n)	(BLOCK_LOW((id)+1,p,n)-1)
@@ -171,7 +174,7 @@ Parameters:
 
 returns - the child population
 **************************************************************************************************************/
-vector < Sudokoid > GeneratePopulation(vector < Sudokoid > &matingPopulation, double mutationRate, int population_size)
+vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, double mutationRate, int population_size)
 {
 	double fitnessTotal = 0.0;
 	vector < double > fitnesses;
@@ -249,7 +252,7 @@ Parameters:
 
 returns - the top selectionRate fraction of Sudokoids
 ******************************************************************************/
-vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> &population, double selectionRate )
+vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
 	Puz *sol;
@@ -296,7 +299,7 @@ Parameters:
 	progenitor - the original best solution from the simple solver
 	population_size - the size of the population to be created
 ******************************************************************************/
-vector < Sudokoid > GenerateInitialPopulation( Sudokoid &progenitor, int population_size )
+vector < Sudokoid > GenerateInitialPopulation( Sudokoid progenitor, int population_size )
 {
 	vector < Sudokoid > population;
 	population.resize(population_size);
@@ -322,7 +325,7 @@ in the case of a tie.
 Parameter:
 	population - the population to pick the best from
 ******************************************************************************/
-Sudokoid Best( vector <Sudokoid> &population)
+Sudokoid Best( vector <Sudokoid> population)
 {
 	int lowest = INT_MAX;
 	int lowestIndex = 0;
@@ -370,13 +373,14 @@ void migrate(vector<Sudokoid> &population, int migration_size)
 {
 	int pop_size = (int)population.size();
 	std::sort(population.begin(), population.end());
-	Puz *puz;;;
-	int *fitness;;
-	puz = (Puz*)malloc(sizeof(Puz)*migration_size);
-	fitness = (int*)malloc(sizeof(int)*migration_size);
+	Puz *spuz;//, *rpuz;
+	int *sfitness;//, *rfitness;
+	spuz = (Puz*)malloc(sizeof(Puz)*migration_size);
+	sfitness = (int*)malloc(sizeof(int)*migration_size);
+	//rpuz = (Puz*)malloc(sizeof(Puz)*migration_size);
+	//rfitness = (int*)malloc(sizeof(int)*migration_size);
 	
-	
-	if(puz == NULL || fitness == NULL)
+	if(spuz == NULL || sfitness == NULL)
 		MPI_Abort(MPI_COMM_WORLD, -1);
 	
 	for (int i = 0; i < migration_size; i++)
@@ -384,31 +388,32 @@ void migrate(vector<Sudokoid> &population, int migration_size)
 		for (int j = 0; j < 9; j++)
 			for (int k = 0; k < 9; k++)
 				for (int n = 0; n < 10; n++)
-					puz[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
-		fitness[i] = population[i].Fitness;
+					spuz[i].solution[j][k][n] = (*population[i].puzzle).puzzle.solution[j][k][n];
+		sfitness[i] = population[i].Fitness;
 	}
+
+
+	if(ID == BROADCASTING_ISLAND)
+		cout << "ID Broadcasting: " <<  BROADCASTING_ISLAND << endl;
+	else
+		cout << "ID Recieving: " << ID << endl;
+	// MPI_Bcast(spuz, migration_size*sizeof(Puz), MPI_CHAR, BROADCASTING_ISLAND, MPI_COMM_WORLD);
+	// MPI_Bcast(sfitness, migration_size, MPI_INT, BROADCASTING_ISLAND, MPI_COMM_WORLD);
 	
-	MPI_Sendrecv_replace(puz, migration_size*9*9*10, MPI_CHAR, ID,  0, 
-			     ID, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			 
-	MPI_Sendrecv_replace(fitness, migration_size, MPI_INT, ID,  0, 
-			     ID , 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			 
-	cout << "Made it to migation" << endl;
 	int offset;
 	for(int i = pop_size - migration_size; i < pop_size; i++)
 	{
 		offset = i - pop_size + migration_size;
-		//cout << "i: " << i << "\t i - pop_size + migrationsize: " << i - pop_size + migration_size << endl;
 		for (int j = 0; j < 9; j++)
 			for (int k = 0; k < 9; k++)
 				for (int n = 0; n < 10; n++)
-					(*population[i].puzzle).puzzle.solution[j][k][n] = puz[offset].solution[j][k][n];
-		population[i].Fitness = fitness[offset];
+					(*population[i].puzzle).puzzle.solution[j][k][n] = spuz[offset].solution[j][k][n];
+		population[i].Fitness = sfitness[offset];
 	}
-	
-	free(puz);
-	free(fitness);
+	free(spuz);
+	//free(rpuz);
+	free(sfitness);
+	//free(rfitness);
 }
 /******************************************************************************
 main
@@ -451,6 +456,8 @@ int main(int argc, char *argv[])
 	double selection_rate = 0.5;
 	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
 
+	// int dims[1] = {2}, periods[1] = {1};
+	// MPI_Cart_create(shift_comm, 2, dims, periods, 0, &shift_comm);
 	//look for first few arguments
 	switch(argc)
 	{
@@ -540,6 +547,8 @@ int main(int argc, char *argv[])
 		int lastBest = INT_MAX; //the last best, used to find streaks.
 		int tieStreak = 0; //the number of generations which have been a tie
 
+		
+		BROADCASTING_ISLAND = 0;
 		//if not, begin the generational looping
 		while(bestFit > 0 && generation < generations)
 		{
@@ -551,6 +560,8 @@ int main(int argc, char *argv[])
 			if(generation % migration_rate == 0)
 			{
 				migrate(population, migration_size);
+				BROADCASTING_ISLAND = (BROADCASTING_ISLAND + 1) % P;
+				cout << "made it back to main" << endl;
 			}
 			//select mates and breed a new generation
 			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
