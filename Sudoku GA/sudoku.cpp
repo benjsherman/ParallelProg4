@@ -174,19 +174,15 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 		#pragma omp critical
 		fitnessTotal += fitnesses[i];
 	}
-	//cout<< "THREAD NUMBER IS " << Sudokoid::GLOBAL_P;
-
 	//set default values for the mates in case the random value lands on the last index
 	Sudokoid *mateA = &matingPopulation[matingPopulation.size() - 1];
 	Sudokoid *mateB = &matingPopulation[matingPopulation.size() - 1];
 	bool valid; //this will flag whether or not a certain mating was valid
 	int current;
 	double roulette;
-	
 	srand (time(NULL));
 	
 	//fill the child population
-	//#pragma omp parallel for private(current, valid) shared(roulette,matingPopulation,r) num_threads(Sudokoid::GLOBAL_P)
 	for(current = 0; current < population_size ; current++)
 	{
 		//for the first mate,
@@ -194,11 +190,12 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 		roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
 		valid  = false;
 		
-		// can't use OMP because of undetermined loop exit
-		//subtract all values in the list until roulette passes or reaches 0
 		while(!valid)
 		{
 			valid = true;
+			
+			// can't use OMP because of undetermined loop exit
+			//subtract all values in the list until roulette passes or reaches 0
 			for(unsigned int i = 0; i < matingPopulation.size(); i++)
 			{
 				roulette -= fitnesses[i];
