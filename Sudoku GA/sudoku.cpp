@@ -180,55 +180,57 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	Sudokoid *mateA = &matingPopulation[matingPopulation.size() - 1];
 	Sudokoid *mateB = &matingPopulation[matingPopulation.size() - 1];
 	bool valid; //this will flag whether or not a certain mating was valid
-	int current = 0;
-
+	int current;
+	double roulette;
 	
 	srand (time(NULL));
+	
 	//fill the child population
-	while(current < population_size)
+	//#pragma omp parallel for private(current, valid) shared(roulette,matingPopulation,r) num_threads(Sudokoid::GLOBAL_P)
+	for(current = 0; current < population_size ; current++)
 	{
 		//for the first mate,
 		//generate random number from 0 to fitnessTotal		
-		double roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
-		valid  = true;
+		roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
+		valid  = false;
 		
 		// can't use OMP because of undetermined loop exit
 		//subtract all values in the list until roulette passes or reaches 0
-		for(unsigned int i = 0; i < matingPopulation.size(); i++)
+		while(!valid)
 		{
-			roulette -= fitnesses[i];
-			if(roulette <= 0)
+			valid = true;
+			for(unsigned int i = 0; i < matingPopulation.size(); i++)
 			{
-				//first mate has been selected!
-				mateA = &matingPopulation[i];
-				i = fitnesses.size(); //exit the loop gracefully
+				roulette -= fitnesses[i];
+				if(roulette <= 0)
+				{
+					//first mate has been selected!
+					mateA = &matingPopulation[i];
+					i = fitnesses.size(); //exit the loop gracefully
+				}
 			}
-		}
 	
-		//now obtain the same for the second mate
-		roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
-		
-		// can't use OMP because of undetermined loop exit
-		for(unsigned int i = 0; i < matingPopulation.size(); i++)
-		{
-			roulette -= fitnesses[i];
-			if(roulette <= 0)
+			//now obtain the same for the second mate
+			roulette = (fitnessTotal)*( (float)rand()/RAND_MAX);
+			
+			// can't use OMP because of undetermined loop exit
+			for(unsigned int i = 0; i < matingPopulation.size(); i++)
 			{
-				//second mate has been selected
-				mateB = &matingPopulation[i];
-				//make sure there are no duplicates.
-				if(mateB == mateA)
-					valid = false;
-				i = fitnesses.size(); //exit the loop gracefully
+				roulette -= fitnesses[i];
+				if(roulette <= 0)
+				{
+					//second mate has been selected
+					mateB = &matingPopulation[i];
+					//make sure there are no duplicates.
+					if(mateB == mateA)
+						valid = false;
+					i = fitnesses.size(); //exit the loop gracefully
+				}
 			}
 		}
-
-		if(valid)
-		{
-			// mate the two selected children			
-			children[current] = mateA -> Mate(*mateB, mutationRate);	
-			current++;
-		}
+		// mate the two selected children			
+		children[current] = mateA -> Mate(*mateB, mutationRate);	
+		//current++;		
 	}
 	return children;
 }
@@ -507,13 +509,11 @@ int main(int argc, char *argv[])
 			totalTime  += (omp_get_wtime() - startTime);
 
 		}
-		
-		
 		cout << "Average generation completed with " << Sudokoid::GLOBAL_P << " thread(s) in " << totalTime/(double)generation << " seconds" << endl;
-
-	//select the best of all champion solutions as the best solution
-	champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-	BestSolution = Best(champions);
+			
+		//select the best of all champion solutions as the best solution
+		champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
+		BestSolution = Best(champions);
 	}
 
 	cout << "\nBest Solution: \n\n";
