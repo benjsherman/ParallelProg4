@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
 		int tieStreak = 0; //the number of generations which have been a tie
 		int cont = 1;
 		MPI_Status status;
-		int winnerRank;  // if solution is found, this will be the rank of the finder, for output
+
 
 		int recv = 0;
 							
@@ -461,19 +461,15 @@ int main(int argc, char *argv[])
 		if (my_rank == 0)
 		{	
 			// Champs received from each thread are stored here
-			vector < vector <Sudokoid> > threadBestsChamps;	// if all processes don't find solution fill this up and find best
-			
 			while (!recv)
-			{
-				// could listen for conditional receives in here then kill prcesses 
 				MPI_Iprobe (MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &recv, &status);
-			}
+			
 			// gets to here when a 0 is sent, may not be receving or sending
 			int sender = status.MPI_SOURCE;
+
 			MPI_Recv (&cont, 1, MPI_INT, sender, MPI_ANY_TAG, comm, &status);
 			for (i = 1; i < processes; i++)  // may not be sending or others may not be receiveing
 				MPI_Send (&recv, 1, MPI_INT, i, 0, comm); 
-
 		}	
 		//if not, begin the generational looping
 		else if (my_rank != 0)
@@ -529,29 +525,42 @@ int main(int argc, char *argv[])
 				
 			}
 
-			if (bestFit == 0)
+			if (bestFit == 0 )
 			{
-				winnerRank = my_rank;
-				cont = 0;
-
-				BestSolution = Best(champions);	
+				cont = 0;			
 				MPI_Send(&cont, 1, MPI_INT, 0, 10, comm);
 			}
 			// else gather all champions and find best, store in best solution 	 
 		}
 			
 		//select the best of all champion solutions as the best solution
-		//champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
-		BestSolution = Best(champions);
+		if (my_rank != 0)
+		{
+			champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
+			BestSolution = Best(champions);
+		}
+	}
+
+	// MPI Reduce the fit values of the best solutions, get the thread with lowest fit, print the solution from the rank with the lowest reduce value
+	int localResult[2];
+
+	if (my_rank == 0)
+		localResult[0] = INT_MAX;
+	else 
+		localResult[0] = BestSolution.Fitness;
+	localResult[1] = my_rank;
+
+	int globalResult[2] = { 0, 0 };
+
+	MPI_Allreduce(localResult, globalResult, 1, MPI_2INT, MPI_MINLOC, comm);
+	
+	if (my_rank == globalResult[1])
+	{
+		cout << "\nBest Solution found by process " << my_rank << ": \n\n";
+		Puzzle(&BestSolution).output(cout);
 	}
 
 	MPI_Finalize();
-
-	if (my_rank == 0)
-	{	
-		cout << "\nBest Solution: \n\n";
-//		Puzzle(&BestSolution).output(cout);
-	}
 
 	//clear the heap of the beginning puzzle and any remaining puzzles
 	Sudokoid::deletePuzzles();
