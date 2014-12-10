@@ -241,7 +241,13 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 SelectMatingPopulation
 
 removes the bottom 1 - selectionRate fraction of Sudokoids in a population, 
-returning the remaining mating population.
+returning the remaining mating population. Fitness is calculated in this function,
+this function does other calculations besides fitness unlike 
+"SlaveSelectMatingPopulation". However, this function forks data to
+other "slave" threads using MPI_Scatter. After parallel computation is complete,
+MPI_Gather is used to gather the newly calculated fitness values of each
+individual.
+
 
 Parameters:
 	population - the population of Sudokoids
@@ -249,7 +255,7 @@ Parameters:
 
 returns - the top selectionRate fraction of Sudokoids
 ******************************************************************************/
-vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
+vector < Sudokoid > MasterSelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
 	Puz *sol, *rsol;
@@ -303,6 +309,21 @@ vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double
 	
 }
 
+/******************************************************************************
+SelectMatingPopulation
+
+This function only calculates the fitness of individuals recieved from the 
+data scattering from the master thread. Once done the master thread gathers
+the newly calculated fitness values back to itself from this function.
+
+
+Parameters:
+
+MPI IN: sol - sub population recieved from the Master thread.
+   OUT: rfitness - newly calculated fitness values of the sub population.
+
+returns - the top selectionRate fraction of Sudokoids
+******************************************************************************/
 void SlaveSelectMatingPopulation( )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
@@ -357,15 +378,17 @@ vector < Sudokoid > GenerateInitialPopulation( Sudokoid progenitor, int populati
 }
 
 /******************************************************************************
-Best
+MasterBest
 
 returns the Sudokoid with the best fitness.  Returns the first sequentially
-in the case of a tie.
+in the case of a tie. This function transmit data to other processes for 
+computaiton using MPI_Scatter and retrieves the index of the best individual
+with an MPI_Reduce.
 
 Parameter:
 	population - the population to pick the best from
 ******************************************************************************/
-Sudokoid Best( vector <Sudokoid> population)
+Sudokoid MasterBest( vector <Sudokoid> population)
 {
 	int lowest = INT_MAX;
 	int lowestIndex[1] = {0};
@@ -416,10 +439,13 @@ Sudokoid Best( vector <Sudokoid> population)
 	return population[reducedLowest[0]];
 }
 /******************************************************************************
-Best
+SerialBest
 
 returns the Sudokoid with the best fitness.  Returns the first sequentially
-in the case of a tie.
+in the case of a tie. This serial function is for the last evaluation of
+the population to determine who is the best. A serial version was required
+because the champions list is evaluated and the champions list length isn't
+constant.
 
 Parameter:
 	population - the population to pick the best from
@@ -443,6 +469,23 @@ Sudokoid SerialBest( vector <Sudokoid> population)
 	}
 	return population[lowestIndex];
 }
+
+/******************************************************************************
+SlaveBest
+
+returns the Sudokoid with the best fitness.  Returns the first sequentially
+in the case of a tie. This serial function is for the last evaluation of
+the population to determine who is the best. This function is only executed
+by slave threads/processes. It is passed no data and instead receives data
+from the root thread after which the function sends the computed data
+back to the root thread.
+
+MPI IN:
+	sol - the population to pick the best from
+	fitness - the fitness of the population "sol"
+MPI OUT:
+	LowestIndex - the index of the best individual in "sol" 
+******************************************************************************/
 void SlaveBest()
 {
 	int lowest = INT_MAX;
@@ -557,6 +600,7 @@ int main(int argc, char *argv[])
 	
 	if(ID == 0)
 	{
+		// this execution is sole for the root/master thread
 		fin.open(filename);
 		if(!fin.is_open())
 		{
@@ -626,11 +670,11 @@ int main(int argc, char *argv[])
 			cout << "Generation " << generation << ": ";
 
 			//select mates and breed a new generation
-			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
+			vector < Sudokoid > MatingPopulation = MasterSelectMatingPopulation(population, selection_rate);
 			population = GeneratePopulation(MatingPopulation, mutation_rate, N);			
 
 			//find the champion of the current generation
-			Sudoking = Best(population);
+			Sudoking = MasterBest(population);
 
 			bestFit = Sudoking.Fitness;
 			cout << "best score: " << bestFit << endl;
@@ -669,9 +713,7 @@ int main(int argc, char *argv[])
 		}
 
 		time = MPI_Wtime() - time;
-		// for(int i = 0; i < champions.size(); i++)
-			// champions[i + generation -1].Fitness -= 1;
-		//	cout << "i: " << i << " " <<  champions[i].Fitness << endl;
+
 		//select the best of all champion solutions as the best solution
 		champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
 		BestSolution = SerialBest(champions);
@@ -681,6 +723,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		// slave process execute this loop
 		while(generation < generations)
 		{
 			//create a new generation
