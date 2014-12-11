@@ -1,3 +1,4 @@
+#include <omp.h>
 #include <iostream>
 #include <vector>
 #include <random>
@@ -10,7 +11,7 @@
 #include <math.h>
 #include "Sudokoid_8tile.h"
 
-
+int GLOBAL_P;
 /**************************************************************************************************************
 GeneratePopulation
 
@@ -36,6 +37,7 @@ vector < Sudokoid > GeneratePopulation(vector < Sudokoid > matingPopulation, dou
 	fitnesses.resize(matingPopulation.size());
 	children.resize(population_size);
 
+	#pragma omp parallel for num_threads(GLOBAL_P) shared(matingPopulation) schedule(static, 10)
 	for(unsigned int i = 0; i < matingPopulation.size(); i++)
 	{
 		fitnesses[i] = 1.0 / matingPopulation[i].Fitness;
@@ -109,6 +111,7 @@ returns - the top selectionRate fraction of Sudokoids
 vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double selectionRate )
 {
 	//see if any of population needs to be fitted (should only occur on the first population)
+	#pragma omp parallel for num_threads(GLOBAL_P) shared(population) schedule(static, 10)
 	for (unsigned int k = 0; k < population.size(); k++)
 	{
       if(debugging)
@@ -178,6 +181,7 @@ Sudokoid Best( vector <Sudokoid> population)
 		cout<<population[1].Fitness;
 	}
 
+	#pragma omp parallel for num_threads(GLOBAL_P) shared(population) private(lowest) schedule(static, 10)
 	for(unsigned int i = 0; i < population.size(); i++)
 	{
 		//make sure that the fitness has been calculated
@@ -189,6 +193,8 @@ Sudokoid Best( vector <Sudokoid> population)
 		if(population[i].Fitness < lowest)
 		{
 			lowest = population[i].Fitness;
+			
+			#pragma omp critical
 			lowestIndex = i;
 		}
 	}
@@ -217,15 +223,15 @@ int main(int argc, char *argv[])
 	srand ( time(NULL) );
 	//ignore the first few results to avoid similarities between trials done within a short period of time.
 	for (int i  = 0; i < 10; i++) { rand(); }
-
+	GLOBAL_P = 2;
 	//constants, for now
 	int grid_dimension = 3;
 	int restart_threshold = 10;
 
 	//set up default parameters (including genetic operators)
-   std::string fn = "8tiles/easy1.txt";	
-   char* filename = (char*)fn.c_str();
-	int population_size = 10000;
+   //string fn = "8tiles/easy1.txt";	
+    char* filename;//(char*)fn.c_str();
+	int population_size = 100;
 	int generations = 100;
 	double selection_rate = .1;
 	double mutation_rate =.05; // due to how the program is set up, must be between .0001 and 100 to work.
@@ -233,8 +239,8 @@ int main(int argc, char *argv[])
 	//look for first few arguments
 	switch(argc)
 	{
-		case 7: restart_threshold = atoi(argv[6]);
-		case 6: mutation_rate = atof(argv[5]); //fall through to set the rest of the previous args
+		case 8: restart_threshold = atoi(argv[7]);
+		case 7: mutation_rate = atof(argv[6]); //fall through to set the rest of the previous args
 			if ( (mutation_rate != 0) && (mutation_rate > 100 || mutation_rate < .0001))
 			{
 				//because of how the mutation is calculated, any nonzero value below .0001
@@ -242,10 +248,11 @@ int main(int argc, char *argv[])
 				cout << "\nMutation rate must be between .0001 and 100, or 0\n";
 				return 0;
 			}
-		case 5: selection_rate = atof(argv[4]);
-		case 4: generations = atoi(argv[3]);
-		case 3: population_size = atoi(argv[2]);
-		case 2: filename = argv[1];
+		case 6: selection_rate = atof(argv[5]);
+		case 5: generations = atoi(argv[4]);
+		case 4: population_size = atoi(argv[3]);
+		case 3: filename = argv[2];
+		case 2: GLOBAL_P = atoi(argv[1]);
 		default:
 			break;
 	}
@@ -299,8 +306,9 @@ int main(int argc, char *argv[])
 
 	int lastBest = INT_MAX; //the last best, used to find streaks.
 	int tieStreak = 0; //the number of generations which have been a tie
-
+	double startime, totalTime = 0;
 	//begin the generational looping
+	startime = omp_get_wtime();
 	while(bestFit > 0 && generation < generations)
 	{
 		//create a new generation
@@ -346,9 +354,12 @@ int main(int argc, char *argv[])
 	champions.resize(generation); //resize the champions so Best can tranverse it without seg faulting
 	BestSolution = Best(champions);
 	}
+	totalTime += (omp_get_wtime() - startime);
 
 	cout << "\nBest Solution: \n\n";
 	BestSolution.Print(cout);
+	
+	cout << "Average Time per generation: " << totalTime/generations << endl;
 		
 	return 0;
 }
