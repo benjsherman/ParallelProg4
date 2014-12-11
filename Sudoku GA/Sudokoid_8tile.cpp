@@ -7,16 +7,25 @@
 #include <exception>
 #include <cstdlib>
 #include <climits>
-#include "SimpleSolver.h"
+#include "Sudokoid_8tile.h"
 
 using namespace std;
 
+
+//debugging functions
+
+void print_moves(Sudokoid sudokoid)
+{  
+   cout << std::endl;
+   for(int j = 0; j < sudokoid.Moves.Length; j++)
+      std::cout << sudokoid.Moves.Moves[j];
+   cout << std::endl;
+}
 
 
 /**************************************/
 /*	Some non-member utility functions */
 /**************************************/
-
 
 
 /*****************************************************************************
@@ -29,16 +38,16 @@ Paramaters:
 	cout - the stream to print to
 
 *****************************************************************************/
-void printGrid(int[][3] grid, ostream& cout)
+void printGrid(int grid[][3], ostream& cout)
 {
     cout <<"\n\n";
     for (int i = 0; i < 3; i++)
     {
-        cout <<"\n";
         for (int j = 0; j < 3; j++)
         {
             cout << grid[i][j] << " ";
         }
+        cout << endl;
     }
 }
 
@@ -51,7 +60,7 @@ getScore
  Parameter grid - the grid to evaluate.
 
 *****************************************************************************/
-int getScore(int[][3] grid)
+int getScore(int grid[][3])
 {
     int score = 0;
 
@@ -94,9 +103,9 @@ void readPuzzle(istream & _in)
 		throw new string("Only 3 by 3 puzzles are currently supported");
 	}
 	
-	for(int i=0; i < 3 ; i++)
+	for(int i=0; i < dim1 ; i++)
 	{
-		for(int j=0; j < 3; j++)
+		for(int j=0; j < dim2; j++)
 		{
 			_in >> Puzzle[i][j];
 		}
@@ -142,13 +151,16 @@ bool Sudokoid::operator< (const Sudokoid &other) const
 
 Sudokoid::Sudokoid()
 {
-
+   this->Fitness = INT_MAX;
+   this->Moves.Fitness = INT_MAX;
+   this->Moves.Length = 100;
 }
 
-Sudokoid::Sudokoid(Sudokoid other)
+Sudokoid::Sudokoid(const Sudokoid& other)
 {
 	//copy constructor
-    this->copySolution(other.solution);
+    this->copySolution(other.Moves);
+    this->Fitness = other.Fitness;
 }
 
 
@@ -173,9 +185,10 @@ void Sudokoid::generateRandomSolution()
             case 3: this->Moves.Moves[i] = 'r';
                 break;
             default:
+               break;
         }
     }
-    this->Moves->Length = 100;
+    this->Moves.Length = 100;
 }
 
 /*****************************************************************************
@@ -187,12 +200,12 @@ Parameter solution - the solution to copy
 *****************************************************************************/
 void Sudokoid::copySolution( const Solution solution )
 {
-	for(int i = 0; i < solution.Moves.Length; i++)
+	for(int i = 0; i < solution.Length; i++)
 	{
-		this->Moves.Moves[i] = solution.Moves.Moves[i];
+		this->Moves.Moves[i] = solution.Moves[i];
 	}
-	this->Moves.Moves.Length = solution.Moves.Length;
-	this->Moves.Fitness = solution.Moves.Fitness;
+	this->Moves.Length = solution.Length;
+	this->Moves.Fitness = solution.Fitness;
 	this->Fitness = this->Moves.Fitness;
 }
 
@@ -234,10 +247,26 @@ void Sudokoid::Fit()
 
     // start moving
 
-    for (int i = 0; i < this->Moves.Length; i++)
+
+    if(debugging)
     {
+       cout << "\nFitting Sudokoid of Length " << (*this).Moves.Length << ": ";
+       print_moves(*this);
+       cout << endl;
+    }
+
+    for (int i = 0; i < (*this).Moves.Length; i++)
+    {
+        if(debugging)
+        {
+            cout << "\nMove " << i << ": " << (*this).Moves.Moves[i] << endl;
+            //cout << "\n Zero Row: " << zero_row<< endl;
+            //cout << "\n Zero Col: " << zero_col<< endl;
+            //printGrid(puzzle, std::cout);
+            cout << endl;
+        }
         bool valid = false;
-        switch( this->Moves.Moves[i] )
+        switch( (*this).Moves.Moves[i] )
         {
         case 'u':
             if(zero_row > 0)
@@ -267,7 +296,7 @@ void Sudokoid::Fit()
             }
             break;
         case 'l':
-            if(zero_row > 0)
+            if(zero_col > 0)
             {            
                 puzzle[zero_row][zero_col] = puzzle[zero_row][zero_col-1];
                 puzzle[zero_row][zero_col-1] = 0;
@@ -276,36 +305,34 @@ void Sudokoid::Fit()
             }
             break;
         default:
+            break;
         }
 
         if(valid)
         {
-            new_solution.Moves.Moves[new_solution.Length] = this->Moves.Moves[i];
-            new_solution.Length++;
-
             int gotten_score = getScore(puzzle);
             if(gotten_score < best_score)
             {
-                best_score = gotten_score;
-                best_index = i;
+               best_score = gotten_score;
+               best_index = i;
+
+               if(debugging)
+               {
+                  cout << "New Best!  Score of " << best_score << " at index " << best_index << endl;
+                  printGrid(puzzle, std::cout);
+               } 
             }
         }
     }
+    if(debugging)
+    {
+       cout << "\n----------------------------------------\nFitness of " << best_score * 100 + best_index;
+       cout << endl;
+    }
 
-    this->Moves.Length = best //there are no blanks to fill
-		if (Cell[i][j] == '-')
-		{			
-			int randnum = -1;
-			while(randnum < 0 || used[randnum - 1])
-			{
-				randnum = (rand() % 9) + 1;
-			}
-			Cell[i][j] = (char)(((int)'0') + randnum); //convert the random int to a char
-			used[randnum - 1] = true; //mark that number as used to prevent repeats
-			numUsed++;
-		}_index+1;
+    this->Moves.Length = best_index + 1;
     this->Moves.Fitness = best_score * 100 + best_index;
-	this->Fitness = this->Moves.Fitness;
+	 this->Fitness = this->Moves.Fitness;
 }
 
 /*****************************************************************************
@@ -377,7 +404,7 @@ void Sudokoid::Print( ostream& cout)
             }
             break;
         case 'l':
-            if(zero_row > 0)
+            if(zero_col > 0)
             {            
                 puzzle[zero_row][zero_col] = puzzle[zero_row][zero_col-1];
                 puzzle[zero_row][zero_col-1] = 0;
@@ -386,6 +413,7 @@ void Sudokoid::Print( ostream& cout)
             }
             break;
         default:
+            break;
         }
 
         if(valid)
@@ -408,7 +436,7 @@ Parameters:
 Sudokoid Sudokoid::Mate( Sudokoid mate, double mutationRate )
 {
 	//generate offspring by flipping a coin on every cell
-	Sudokoid Sudokling();
+	 Sudokoid Sudokling;
     int cross_index;
     int mate_start, mate_end, this_start, this_end;
 
@@ -454,12 +482,14 @@ Sudokoid Sudokoid::Mate( Sudokoid mate, double mutationRate )
                     case 3: mutator = 'r';
                         break;
                     default:
+                        break;
                 }
 				Sudokling.Moves.Moves[i] = mutator;
 			}
 	}
 
-	Sudokling.Fit();
+   Sudokling.Fit();
+
 	return Sudokling;
 }
 

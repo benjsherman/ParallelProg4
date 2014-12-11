@@ -1,4 +1,3 @@
-#include <mpi.h>
 #include <iostream>
 #include <vector>
 #include <random>
@@ -18,7 +17,10 @@ using namespace std;
 // to read in the global puzzle
 void readPuzzle(istream &_in);
 void printPuzzle(ostream& cout);
-void printGrid(int[][3] grid, ostream& cout);
+void printGrid(int grid[][3], ostream& cout);
+
+//Whether or not debugging messages should be displayed
+const bool debugging = false;
 
 /******************************************************************************
 Sudokoid
@@ -36,24 +38,24 @@ class Sudokoid
 	public:
 		struct Solution
 		{
-            // cap the solution length at 100
+         // cap the solution length at 100
 
 			int Length;	//The number of moves in the solution.
-            int Fitness = INT_MAX;
+         int Fitness;
 			char Moves[100];	//The moves
 		};
 
-		int Fitness = INT_MAX;
+		int Fitness;
 		Solution Moves;  //the solution data
 
 		//constructors
 		Sudokoid();
-		Sudokoid(Solution solution);
-        Sudokoid(char* filepath);
+		Sudokoid(const Sudokoid& other);
+      Sudokoid(char* filepath);
 		
-        //Solution methods
-        void copySolution( const Solution solution );
-        void generateRandomSolution();
+      //Solution methods
+      void copySolution( const Solution solution );
+      void generateRandomSolution();
 
 		//other methods
 		bool operator< (const Sudokoid &other) const;
@@ -61,3 +63,8 @@ class Sudokoid
 		Sudokoid Mate( Sudokoid mate, double mutationRate );
 		void Print( ostream& cout);
 };
+
+
+// debugging functions
+
+void print_moves(Sudokoid sudokoid);

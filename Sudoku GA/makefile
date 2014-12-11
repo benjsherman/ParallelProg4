@@ -1,34 +1,13 @@
-CXXFLAGS= -std=c++11 -Wall -O3
-MPICXX = mpic++
+OBJS = sudoku8tile.o Sudokoid_8tile.o
 
-OBJS = sudoku.o SimpleSolver.o puzzle.o Sudokoid.o
+8tile: sudoku8tile.o Sudokoid_8tile.o
+	g++ -g ${OBJS} -lm -std=c++11 -o 8tile
 
+sudoku8tile.o: sudoku8tile.cpp Sudokoid_8tile.o 
+	g++ -Wall -g -std=c++11 -c sudoku8tile.cpp
 
-sudoku: sudoku.o puzzle.o SimpleSolver.o Sudokoid.o
-
-	$(MPICXX) $(OBJS) $(CXXFLAGS) -lm -o sudoku
-
-
-sudoku.o: sudoku.cpp SimpleSolver.h 
-
-	$(MPICXX) $(CXXFLAGS) -c sudoku.cpp
-
-
-SimpleSolver.o: SimpleSolver.cpp SimpleSolver.h puzzle.h
-
-	$(MPICXX) $(CXXFLAGS) -c SimpleSolver.cpp
-
-
-puzzle.o: puzzle.cpp puzzle.h
-
-	$(MPICXX) $(CXXFLAGS) -c puzzle.cpp
-
-
-Sudokoid.o: Sudokoid.cpp Sudokoid.h
-
-	$(MPICXX) $(CXXFLAGS) -c Sudokoid.cpp
-
+Sudokoid_8tile.o: Sudokoid_8tile.cpp Sudokoid_8tile.h
+	g++ -Wall -g -std=c++11 -c Sudokoid_8tile.cpp
 
 clean:
-
-	rm -rf *o sudoku
+	rm -rf *o 8tile

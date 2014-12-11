@@ -1,128 +1,3 @@
-
-/**************************************************************************//**
-  Sudoku
- 
- Assignemnt - Assignment 1, Genetic Algorithm
- 
- Course - CSC 447 Artifical Intelligence
- 
- Authors - Minda McDaniel, Derek Stotz
- 
- Date - 2/24/2014
- 
- Instructor - John Weiss
- 
- Usage - To compile, use make
-	To run, enter sudoku <command line arguments>
-	At a minimum, command line arguments should be a file name, but can be
-	any number in the following order:
-	
-		filename population_size generations selection_rate mutation_rate restart_threshold
-
-	Defaults are as follows:
- 
-		population_size = 1000
-		generations = 1000
-		selection_rate = 0.5
-		mutation_rate = .5
-		restart_threshold = 100
-		
-Details - The purpose of this assignment was to design a sudoku solver,
-	implementing a basic puzzle solver, solution evaluator, and genetic 
-	algorithm to evolve a best solution.  The effectiveness of such
-	a genetic algorithm depends on how well the implementation fits the
-	problem and how effective the parameters used are.
-
-	The system uses two main objects: Puzzles and Sudokoids.  A Puzzle is
-	structured for solution evaluation, and the whole system begins with the
-	creation of an original attempt at a solution stored in a Puzzle object.
-	Sudokoids are structured for the genetic algorithm, holding 2-dimensional
-	vectors of structs called SudokuCells, which are traded between mates
-	during crossover.  Theses SudokuCells mutate by swaping two values
-	inside of themselves.  In both Puzzles and SudokuCells, numbers in the
-	puzzle are stored as characters.  Sudokoids cointain pointers to Puzzle
-	counterparts, which are created out of specialized Puzzle constructors
-	during the breeding proccess.
-
-	The genetic algorithm loops as follows:
-
-		While the generation is not the last generation,
-			Increment the generation
-			Select the breeding population using selection_rate
-			Generate a new population by breeding the current one
-			Evaluate the fitnesses of the new generation using the
-				fitness function defined in the Puzzle class
-			Store the most fit Sudokoid in a list of champions
-		Print the best of all champions found
-
-	The Sudokoid is set up to accept any square size of Sudoku, but
-	as the Puzzle's solver is specifically for 9x9 Sudokus, this current
-	implementation of the Sudokoid class only accepts 9x9 Sudoku Puzzles.
-		
-
-Recommended Usage - The more moderate difficulties can be solved quickly by:
-
-			sudoku filename 750 500 .1 .05 10
-
-
-		Interestingly enough, a mutation rate of 100% paired with a very strict
-		selection rate is incredibly effective at solving the intermediate to 
-		harder difficulties:
-			
-			sudoku filename 2000 500 .1 .1 10
-
-		A lack of mutation compensated with a stricter selection rate and smaller
-		tolerance for local minima also works suprisingly well, such as in the 
-		following:
-
-			sudoku filename 1500 500 .4 0 5
-		
-
-		All difficulties can be solved with relatively consistent speed with:
-
-			sudoku filename 5000 500 .2 .1 10
-
-		Larger populations and stricter selection rates give the best speed of
-		success for extremely hard problems, although the generations are large
-		and slow to proccess.
-
-			sudoku filename 10000 1000 .1 .1 5
-
-
-
-		In general:
-
-			The population size effects the speed and effectiveness at differing rates depending
-			on the difficulty of the problem.  Easier problems benefit less than harder problems
-			from larger population sizes, as speedup is far more noticeable for the latter.  In
-			any case, larger population sizes take much more memory.
-
-			The maximum number of generations depends on how long the user is willing to wait
-			for the algorithm to complete.  Obviously, the very hard problems should have
-			smaller maximum generation counts.
-
-			Lower selection rates seem to be more effective, and roulette wheel ranomization is
-			still applied to the remaining mating population.
-
-			The mutation rate effects populations with very high selection rates, but does not
-			severely effect most of the better configurations (low selection rate, high population, low
-			reset tolerance).  When it does effect the population, it helps prevent local minima.
-
-			A reset tolerance higher than 10 is pointless, as the local maxima tend to
-			restrict the algorithm quite a bit.  The resetting is very effective, however.
-
-		
- 
-Issues and Bugs - running multiple sudoku proccesses on the same file simeltaneously
-		will result in repeat results, as the random number generator is seeded
-		on Unix time.  Runs of this program must be done at least 1 second apart.
-
-		The local minima severely reduce the consistency of the program.
-		Oftentimes extreme and fiendish difficulty problems are solved on
-		the fifth generation, but sometimes it takes upwards of 40.
- 
- ******************************************************************************/
-
 #include <iostream>
 #include <vector>
 #include <random>
@@ -135,9 +10,6 @@ Issues and Bugs - running multiple sudoku proccesses on the same file simeltaneo
 #include <math.h>
 #include "Sudokoid_8tile.h"
 
-
-//Whether or not debugging messages should be displayed
-bool debugging = false;
 
 /**************************************************************************************************************
 GeneratePopulation
@@ -239,6 +111,9 @@ vector < Sudokoid > SelectMatingPopulation( vector <Sudokoid> population, double
 	//see if any of population needs to be fitted (should only occur on the first population)
 	for (unsigned int k = 0; k < population.size(); k++)
 	{
+      if(debugging)
+         print_moves(population[k]);
+
 		if(population[k].Fitness == INT_MAX)
 			population[k].Fit();
 	}
@@ -272,6 +147,9 @@ vector < Sudokoid > GenerateInitialPopulation( int population_size )
 	{
 		population[i] = Sudokoid();
 		population[i].generateRandomSolution();
+
+      if(debugging)
+         print_moves(population[i]);
 	}
 
 	return population;
@@ -288,6 +166,9 @@ Parameter:
 ******************************************************************************/
 Sudokoid Best( vector <Sudokoid> population)
 {
+   if(debugging)
+      std::cout<< "\n---------------------Finding Best----------------\n" << std::endl;
+
 	int lowest = INT_MAX;
 	int lowestIndex = 0;
 
@@ -295,14 +176,15 @@ Sudokoid Best( vector <Sudokoid> population)
 	{
 		cout<<population.size();
 		cout<<population[1].Fitness;
-		return Sudokoid();
 	}
 
 	for(unsigned int i = 0; i < population.size(); i++)
 	{
 		//make sure that the fitness has been calculated
 		if(population[i].Fitness == INT_MAX)
+      {
 			population[i].Fit();
+      }
 
 		if(population[i].Fitness < lowest)
 		{
@@ -338,14 +220,15 @@ int main(int argc, char *argv[])
 
 	//constants, for now
 	int grid_dimension = 3;
-	int restart_threshold = 100;
+	int restart_threshold = 10;
 
 	//set up default parameters (including genetic operators)
-	char *filename; 
-	int population_size = 1000;
-	int generations = 1000;
-	double selection_rate = 0.5;
-	double mutation_rate = .05; // due to how the program is set up, must be between .0001 and 100 to work.
+   std::string fn = "8tiles/easy1.txt";	
+   char* filename = (char*)fn.c_str();
+	int population_size = 10000;
+	int generations = 100;
+	double selection_rate = .1;
+	double mutation_rate =.05; // due to how the program is set up, must be between .0001 and 100 to work.
 
 	//look for first few arguments
 	switch(argc)
@@ -363,9 +246,8 @@ int main(int argc, char *argv[])
 		case 4: generations = atoi(argv[3]);
 		case 3: population_size = atoi(argv[2]);
 		case 2: filename = argv[1];
-			break; //done with arguments
-		default: cout << "Accepts 1 to 5 arguments.\n";
-			 return 0;
+		default:
+			break;
 	}
 	
 	//Create the first Sudokoid
@@ -408,65 +290,56 @@ int main(int argc, char *argv[])
 	Sudokoid Sudoking; //the best solution so far
 	Sudokoid BestSolution; //the final best solution
 
-	//check to see if a GE solution is even neccessary
-	if(FirstPuzzleSudokoid.Fitness == 0)
+	champions.resize(generations);
+
+	//generate the inital population
+	int bestFit = INT_MAX;
+	int generation = 0;
+	population = GenerateInitialPopulation( population_size );
+
+	int lastBest = INT_MAX; //the last best, used to find streaks.
+	int tieStreak = 0; //the number of generations which have been a tie
+
+	//begin the generational looping
+	while(bestFit > 0 && generation < generations)
 	{
-		BestSolution = Sudokoid(FirstPuzzleSudokoid.puzzle);
-	}
-	else
-	{
-		champions.resize(generations);
+		//create a new generation
+		generation++;
+		cout << "Generation " << generation << ": ";
 
-		//generate the inital population
-		int bestFit = INT_MAX;
-		int generation = 0;
-		population = GenerateInitialPopulation( population_size );
+		//select mates and breed a new generation
+		vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
+		population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
 
-		int lastBest = INT_MAX; //the last best, used to find streaks.
-		int tieStreak = 0; //the number of generations which have been a tie
+		//find the champion of the current generation
+		Sudoking = Best(population);
 
-		//if not, begin the generational looping
-		while(bestFit > 0 && generation < generations)
+		bestFit = Sudoking.Fitness;
+		cout << "best score: " << bestFit << endl;
+
+		//Add the current best (Sudoking) to the list of champions
+		champions[generation - 1] = Sudoking;
+
+		//test to see if there's a streak and if we need to restart.
+
+		if(lastBest == bestFit)
 		{
-			//create a new generation
-			generation++;
-			cout << "Generation " << generation << ": ";
+			//this was a tie.
+			tieStreak++;
+		}
 
-			//select mates and breed a new generation
-			vector < Sudokoid > MatingPopulation = SelectMatingPopulation(population, selection_rate);
-			population = GeneratePopulation(MatingPopulation, mutation_rate, population_size);			
+		lastBest = bestFit;
 
-			//find the champion of the current generation
-			Sudoking = Best(population);
+		if(tieStreak >= restart_threshold)
+		{
+			//restart
+			cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
+			//generate the inital population
 
-			bestFit = Sudoking.Fitness;
-			cout << "best score: " << bestFit << endl;
+			population = GenerateInitialPopulation( population_size );
 
-			//Add the current best (Sudoking) to the list of champions
-			champions[generation - 1] = Sudoking;
-
-			//test to see if there's a streak and if we need to restart.
-
-			if(lastBest == bestFit)
-			{
-				//this was a tie.
-				tieStreak++;
-			}
-
-			lastBest = bestFit;
-
-			if(tieStreak >= restart_threshold)
-			{
-				//restart
-				cout << "\nStreak of " << restart_threshold << " reached.  Restarting...\n\n";
-				//generate the inital population
-
-				population = GenerateInitialPopulation( population_size );
-
-				lastBest = INT_MAX; //the last best, used to find streaks.
-				tieStreak = 0; //the number of generations which have been a tie
-			}
-
+			lastBest = INT_MAX; //the last best, used to find streaks.
+			tieStreak = 0; //the number of generations which have been a tie
 		}
 
 	//select the best of all champion solutions as the best solution
@@ -475,7 +348,7 @@ int main(int argc, char *argv[])
 	}
 
 	cout << "\nBest Solution: \n\n";
-	printGrid(BestSolution.Moves.Moves, cout);
+	BestSolution.Print(cout);
 		
 	return 0;
 }
